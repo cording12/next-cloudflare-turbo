@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-import { Github } from "lucide-react"
+import { ExternalLink, Github } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -17,6 +17,18 @@ export function SiteHeader() {
         />
         <h1 className="font-medium text-base">Documents</h1>
         <div className="ml-auto flex items-center gap-2">
+          <Button asChild className="hidden sm:flex" variant="default">
+            <Link
+              href="https://docs.cording.dev/"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Read the documentation
+              <span>
+                <ExternalLink />
+              </span>
+            </Link>
+          </Button>
           <Button
             asChild
             className="hidden sm:flex"
@@ -30,14 +42,6 @@ export function SiteHeader() {
             >
               <Github />
             </Link>
-            {/* <a
-              className="dark:text-foreground"
-              href="https://github.com/cording12/next-cloudflare-turbo"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              GitHub
-            </a> */}
           </Button>
         </div>
       </div>
