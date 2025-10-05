@@ -1,0 +1,17 @@
+{
+  "title": "Cloudflare",
+  "description": "The Cloudflare dashboard",
+  "icon": "Cloud",
+  "root": true,
+  "pages": [
+    "---Introduction---",
+    "index",
+    "dashboard-overview",
+    "---Dashboard Features---",
+    "workers-and-pages",
+    "d1-databases",
+    "account-settings",
+    "---Deployment---",
+    "automatic-deployments"
+  ]
+}

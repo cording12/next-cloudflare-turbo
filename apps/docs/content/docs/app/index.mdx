@@ -1,0 +1,37 @@
+---
+title: Overview
+description: Understanding the Next-Cloudflare-Turbo application architecture and features
+icon: Album
+---
+
+## What is the app?
+
+The app is the main Next.js application in the Next-Cloudflare-Turbo monorepo. It is a minimal and simple implementation, focused on demonstrating the core concepts for working with Cloudflare D1 databases in a Cloudflare Worker environment.
+
+Once configured, your Next.js development patterns would largely be exactly the same as it would be for any other application deployment.
+
+---
+
+## Key Features
+
+- [ShadCN UI components](https://ui.shadcn.com/)
+- Type-safe, [domain-driven](https://en.wikipedia.org/wiki/Domain-driven_design) data layer
+- [Drizzle Kit for Cloudflare D1](https://orm.drizzle.team/docs/guides/d1-http-with-drizzle-kit)
+- Charts and tables configured with live data
+- [Biome](https://biomejs.dev/), via [Ultracite](https://www.ultracite.ai/)
+
+---
+
+## Pages & Routing
+- Dashboard (`/dashboard`) - Main landing page using [ShadCN blocks](https://ui.shadcn.com/blocks), connected to the D1 database
+- User (`/users`) - The full user data table
+- Home (`/`) - A simple landing page
+
+---
+
+## Next Steps
+
+<Cards>
+    <Card href="/app/architecture" icon={<AppWindow className="text-[var(--app-color)]" />} title="Architecture" description="Understand how the application is organised and structured."/>
+    <Card href="/app/database-patterns" icon={<AppWindow className="text-[var(--app-color)]" />} title="Database patterns" description="Learn about the database patterns and see how the data layer is organised."/>
+</Cards>

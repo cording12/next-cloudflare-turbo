@@ -1,0 +1,199 @@
+---
+title: Development & Preview
+description: Daily development workflow and best practices for local development
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+## Development modes
+
+Next-Cloudflare-Turbo supports two development modes, each serving different purposes in your workflow.
+
+**Standard development** uses the familiar `next dev` command with Hot Module Reloading (HMR). This is your primary development mode for building features, iterating on UI, and general application development.
+
+The use of the [initOpenNextCloudflareForDev()](/app/next-config/) function in the `next.config.ts` provides mock Cloudflare bindings, allowing you to interact with D1 databases, R2 buckets, and other Cloudflare resources as if you were running in a Worker environment.
+
+```bash title="root"
+turbo run dev
+```
+
+**Worker preview** builds your application with the OpenNext adapter and runs it in the actual Workers runtime environment using wrangler dev. This is your final validation before deployment, though it requires rebuilding after each change.
+```npm title="root"
+npm run preview
+```
+
+| Aspect                   | Standard development                                | Worker preview                                                               |
+| ------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Command**              | `turbo run dev`                                     | `npm run preview`                                                            |
+| **Hot Module Reloading** | Yes                                                 | No                                                                           |
+| **Rebuild required**     | No                                                  | Yes                                                                          |
+| **Runtime environment**  | Node.js with mocked bindings                        | Actual Workers runtime                                                       |
+| **Best for**             | Active development, UI iteration, rapid prototyping | Pre-deployment testing, runtime validation, debugging Worker-specific issues |
+
+
+<Callout>
+If your application previews successfully with `npm run preview`, it should deploy successfully to Cloudflare.
+</Callout>
+
+
+---
+
+## Development workflow
+
+A typical development session would follow this pattern:
+
+<Steps>
+    <Step>
+        **Start the dev server**
+        ```bash title="root"
+        turbo run dev
+        ```
+
+        This automatically starts all applications in the monorepo and builds/starts any dependencies that are required (like `@nct/db`)
+
+        <Callout>You can also run these commands from only the `app` root. Remember to manually `build` or run `dev` for any dependencies.</Callout>
+    </Step>
+
+    <Step>
+        **Develop the application**
+
+        Make changes to the application. Hot module reloading will reflect changes in the browser instantaneously.
+    </Step>
+
+    <Step>
+        **Test database changes**
+
+        If you have modified the database schema:
+
+        ```npm
+        npm run db:generate
+        ```
+
+        Then apply migrations locally:
+        ```npm
+        npm run db:migrate:local
+        ```
+
+        <Callout>For more detailed information, see [working with your database](/app/working-with-your-database)</Callout>
+    </Step>
+
+    <Step>
+        **Preview before deploying**
+
+        Before deploying, validate everything works in the Workers runtime:
+        ```npm
+        npm run preview
+        ```
+
+        Test critical functionality to ensure Worker compatability.
+    </Step>
+
+    <Step>
+        **Deploy**
+
+        Once `preview` succeeds, deploy to Cloudflare:
+
+        ```npm
+        npm run deploy
+        ```
+    </Step>
+</Steps>
+
+--- 
+
+## Troubleshooting
+Common error messages and issues are listed on the [Issues & Errors](/next-cloudflare-turbo/known-issues) page. For broader issues, the following steps may be helpful in debugging:
+
+### Preview not working correctly
+
+When `npm run preview` fails or behaves unexpectedly, you can manually separate the build and preview steps to better identify where the problem occurs. 
+
+<Steps>
+    <Step>
+        **Build manually**
+        ```npm title="apps/app"
+        npx opennextjs-cloudflare build
+        ```
+        
+        This transforms your Next.js application into Worker-compatible code in the `.open-next` directory. If the build fails here, the error messages will help identify issues with your code or dependencies.
+    </Step>
+
+    <Step>
+        **Preview with Wrangler**
+
+        Once the build succeeds, preview using Wrangler directly:
+
+        ```npm title="apps/app"
+        npx wrangler dev
+        ```
+        This separates build-time errors from runtime errors, making it easier to diagnose issues.
+    </Step>
+</Steps>
+
+<Callout type="info">
+If the build succeeds but preview fails, the issue is likely related to Worker-specific constraints like bundle size limits, incompatible packages, or runtime restrictions.
+</Callout>
+
+### Clearing build caches
+
+Sometimes stale caches can cause unexpected behaviour. The application has three different caches altogether:
+
+- **Next.js cache**. This is the `.next` folder which stores compiled pages, build artifacts, and cached data fetches
+- **Turbo cache**. This is the `.turbo` folder which stores Turborepo's task execution cache.
+- **Wrangler cache**. This is the `.wrangler` folder which stores local development data for Cloudflare bindings; this includes D1 databases, KV namespaces and R2 buckets.
+
+Removing `.next` and `.turbo` directories is safe and only costs you development speed. It's often a good first port-of-call if you suspect you have a stale cache problem. 
+
+You can safely delete the `.wrangler` folder, but you must be aware that **this will delete your local instances of D1, KV, and R2**. As a result, you will need to remember to re-apply migrations/seed locally before continuing with your application development. 
+
+<Callout>
+    To use the nuclear option of deleting all caches locally, from the project root, run:    
+    ```bash
+    # Stop any running development servers first
+    rm -rf .next .turbo .wrangler
+    ```
+</Callout>
+
+---
+
+## FAQs
+
+<Accordions>
+<Accordion title="Why does HMR not work in preview mode?">
+    Workers preview uses the actual Workers runtime, which doesn't support Hot Module Reloading. Each change requires a full rebuild. Use `next dev` for rapid iteration and `preview` only for final validation.
+  </Accordion>
+
+  <Accordion title="Can I run multiple applications simultaneously?">
+    Yes. Running `turbo dev` from the project root starts both the app and docs. They run on different ports (3000 and 3001 by default).
+  </Accordion>
+  
+  <Accordion title="Why are my database changes not appearing?">
+    There are three common causes:
+        1. Migrations not applied locally - run `npm run db:migrate:local`
+        2. Database package not rebuilt - run `npm run build` in `packages/db`
+        3. Wrong database being queried - check your binding configuration
+  </Accordion>
+
+    <Accordion title="Why is my build failing with 'Module not found'?">
+    This usually means the `@nct/db` package hasn't been built yet. From `packages/db`, run:
+    ```bash
+    npm run build
+    ```
+    Or run `turbo dev` from the project root to automatically handle dependencies.
+  </Accordion>
+
+  <Accordion title="My preview build succeeds but the app doesn't work. What's wrong?">
+    If the build succeeds but the application fails at runtime, check for:
+    - Node.js-specific packages that don't work in Workers (check imports)
+    - Missing environment variables or bindings
+    - Bundle size exceeding limits (use `npx opennextjs-cloudflare build` and check the output)
+  </Accordion>
+
+  <Accordion title="How do I debug which files are causing cache misses?">
+    Use Turbo's `--dry` or `--summarize` flags to see what's changing:
+    ```bash
+    turbo build --dry
+    ```
+    This shows which tasks would run without actually running them, helping identify unexpected cache misses.
+  </Accordion>
+</Accordions>

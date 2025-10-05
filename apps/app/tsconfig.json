@@ -1,0 +1,34 @@
+{
+  "extends": "@nct/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "lib": ["esnext", "DOM", "DOM.Iterable"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "incremental": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["./cloudflare-env.d.ts", "node"],
+    "allowJs": false
+  },
+  /*
+   * This is overly specific because of open-next.
+   * open-next contains ts/tsx files, which get included because a bare .ts/.tsx tells it to - even if the dir is ignored below
+   * When running the check-types task in package.json, it'll keep failing without this level of verbosity
+   */
+  "include": [
+    "cloudflare-env.d.ts",
+    "next-env.d.ts",
+    "next.config.ts",
+    "open-next.config.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  /*
+   * Exclude open-next directory to prevent build errors.
+   * From TypeScript 5.8 onward the compiler raises TS4094 (Property 'ctx' of exported anonymous class type may not be private or protected) for any anonymous exported class containing private or protected members.
+   * OpenNext runs the TypeScript compiler when it bundles the worker, so the build aborts before the Next.js output is even emitted. Adding it as an exclusion prevents this from happening.
+   */
+  "exclude": ["node_modules/**", ".open-next/**/*", ".next/**"]
+}

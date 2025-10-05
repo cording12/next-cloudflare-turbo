@@ -1,0 +1,62 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+  "extends": ["ultracite"],
+  "files": {
+    "includes": ["**", "!**/*.d.ts"]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "asNeeded",
+      "trailingCommas": "es5"
+    }
+  },
+  "json": {
+    "formatter": { "trailingCommas": "none" },
+    "parser": { "allowComments": true }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              [":URL:", ":NODE:"],
+              "react",
+              "next/**",
+              ":BLANK_LINE:",
+              ":PACKAGE:",
+              ":PACKAGE_WITH_PROTOCOL:",
+              ":BLANK_LINE:",
+              ":PATH:",
+              ":BLANK_LINE:",
+              ":ALIAS:",
+              ":BLANK_LINE:",
+              "@nct/**",
+              ":BLANK_LINE:"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "linter": {
+    "rules": {
+      "performance": {
+        "useTopLevelRegex": "off"
+      },
+      "complexity": {},
+      "nursery": {
+        "noAwaitInLoop": "off"
+      },
+      "suspicious": {
+        "noConsole": "off"
+      }
+    }
+  }
+}

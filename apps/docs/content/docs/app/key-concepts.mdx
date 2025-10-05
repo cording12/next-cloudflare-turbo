@@ -1,0 +1,152 @@
+---
+title: Key Concepts
+description: Understanding the fundamental patterns and concepts used in the application
+icon: Lightbulb
+---
+
+## Server & Client Components
+
+The app uses [React Server Components (RSC)](https://vercel.com/blog/understanding-react-server-components) as the default.
+
+### Server Components (Default)
+
+Server components run on the server and never ship JavaScript to the browser. They're perfect for:
+- Fetching data from databases
+- Accessing environment variables
+- Heavy computations
+- Direct access to backend services
+```tsx title="app/dashboard/page.tsx"
+// This is a Server Component (default in App Router)
+export default async function Page() {
+  // We can directly fetch data here
+  const users = await getUsers()
+  
+  return <div>{/* render users */}</div>
+}
+```
+### Client Components
+Client components run in the browser and are needed for:
+
+- Interactive features (onClick, onChange, etc.)
+- Browser APIs (localStorage, window, etc.)
+- React hooks (useState, useEffect, etc.)
+
+```tsx
+"use client" // Mark as client component
+
+import { useState } from "react"
+
+export function DataTable() {
+  const [sorting, setSorting] = useState([])
+  // Interactive logic here
+}
+```
+
+<Callout>
+**Rule of thumb**: Start with Server Components. Only add "use client" when you need interactivity or browser APIs.
+</Callout>
+
+---
+
+## Server Actions
+
+[Server Actions](https://nextjs.org/docs/14/app/building-your-application/data-fetching/server-actions-and-mutations) are functions that run on the server but can be called from client components. They're the recommended way to handle data mutations (create, update, delete).
+
+### How They Work
+```tsx
+"use server" // Marks all exports as Server Actions
+
+export async function updateUser(id: number, data: Partial<User>) {
+  const db = await getDbAsync()
+  return await db.update(users).set(data).where(eq(users.id, id))
+}
+```
+### Calling from Client Components
+```tsx
+"use client"
+
+import { updateUser } from "@/data/users"
+
+export function UserForm() {
+  return (
+    <form action={async (formData) => {
+      // This runs on the server
+      await updateUser(id, {
+        name: formData.get("name")
+      })
+    }}>
+      {/* form fields */}
+    </form>
+  )
+}
+```
+
+---
+
+## Data Access Layer
+The app uses a domain-driven approach to organise data operations. Instead of scattering database queries throughout your app, they're centralised by domain.
+
+```md
+src/data/
+├── users/
+│   ├── queries/       # Read operations
+│   │   ├── get-users.ts
+│   │   └── get-user-by-id.ts
+│   ├── actions/       # Write operations (Server Actions)
+│   │   ├── create.ts
+│   │   ├── update.ts
+│   │   └── delete.ts
+│   └── types.ts       # Domain-specific types
+└── posts/
+    └── ... (same structure)
+```
+
+For a full breakdown, see the [Database patterns](/app/database-patterns) page.
+
+<Callout type="info">
+  This domain-based structure differs from typical Next.js patterns where data fetching might be scattered across route handlers or pages. By centralising data operations by domain, the codebase remains maintainable as it scales.
+</Callout>
+
+---
+
+## Putting it all together
+Here's how these concepts work together in a typical page:
+```tsx title="app/src/app/users/page.tsx"
+// 1. Server Component (no "use client")
+import { getUsers } from "@/data/users"
+import { DataTable } from "@/components/data-table/user/data-table"
+
+export default async function UsersPage() {
+  // 2. Fetch data using cached query
+  const users = await getUsers()
+  
+  // 3. Pass data to client component for interactivity
+  return <UserTable data={users} />
+}
+```
+
+```tsx title="app/src/components/data-table/user/table-cell-viewer.tsx"
+"use client" // 4. Client component for interactivity
+
+import { updateUser } from "@/data/users"
+
+export function TableCellViewer({ data }: { data: SelectUser[] }) {
+  /* Other code */
+
+  const handleSubmit = async (formData: FormData) => {
+    // Extracting form data
+    const updatedData = {
+      firstName: (formData.get("firstName") as string) ?? "",
+      lastName: (formData.get("lastName") as string) ?? "",
+      email: (formData.get("email") as string) ?? "",
+      role: validatedRole,
+    }
+
+    // 5. Call Server Action
+    const updated = await updateUser(item.id, updatedData)
+    
+  }
+  
+  return (/* interactive table */)
+}
+```

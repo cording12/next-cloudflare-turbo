@@ -1,0 +1,149 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ *
+ * This is a more advanced configuration of a wrangler.jsonc which includes staging and production environments,
+ * as well as tag/caches configured via D1/R2
+ */
+{
+  // The monorepo hoists wrangler to the root dir; if not using a monorepo, you would omit the "../../"
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "next-cloudflare-turbo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    "port": 8787
+  },
+  "services": [
+    {
+      // Self-reference binding required for Next.js revalidation
+      "binding": "WORKER_SELF_REFERENCE",
+      // Service name must match the worker name (the "name" value at the top of this file)
+      "service": "next-cloudflare-turbo"
+    }
+  ],
+  // Local development bindings (default environment) - even though it says staging, it will be local due to the "--local" in the CLI
+  // These are used when running `wrangler dev` locally
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "next-cloudflare-turbo-staging",
+      "database_id": "23a3ff59-0b37-4c85-8a81-78f87622c03f",
+      "migrations_dir": "../../packages/db/drizzle/migrations"
+    },
+    {
+      "binding": "NEXT_TAG_CACHE_D1",
+      "database_name": "next-cloudflare-turbo-tag-cache-staging",
+      "database_id": "c75c64c8-20b2-4955-947c-5ff4a02e8b7f"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "next-cloudflare-turbo-cache-staging"
+    }
+  ],
+  // Global migrations (inherited by all environments unless overridden); used for caching
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DOQueueHandler"]
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "next-cloudflare-turbo-staging",
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "next-cloudflare-turbo-staging"
+        }
+      ],
+      "d1_databases": [
+        // Application's staging data
+        {
+          "binding": "DB",
+          "database_name": "next-cloudflare-turbo-staging",
+          "database_id": "23a3ff59-0b37-4c85-8a81-78f87622c03f",
+          "migrations_dir": "../../packages/db/drizzle/migrations"
+        },
+        // Staging tag cache
+        {
+          "binding": "NEXT_TAG_CACHE_D1",
+          "database_name": "next-cloudflare-turbo-tag-staging",
+          "database_id": "c75c64c8-20b2-4955-947c-5ff4a02e8b7f"
+        }
+      ],
+      // Staging cache
+      "r2_buckets": [
+        {
+          "binding": "NEXT_INC_CACHE_R2_BUCKET",
+          "bucket_name": "next-cloudflare-turbo-cache-staging"
+        }
+      ],
+      // Durable Object bindings must be specified per environment
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "NEXT_CACHE_DO_QUEUE",
+            "class_name": "DOQueueHandler"
+          }
+        ]
+      }
+    },
+    "production": {
+      "name": "next-cloudflare-turbo",
+      "routes": [
+        {
+          "pattern": "app.cording.dev",
+          "custom_domain": true
+        }
+      ],
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "next-cloudflare-turbo"
+        }
+      ],
+      "d1_databases": [
+        // Application's production data
+        {
+          "binding": "DB",
+          "database_name": "next-cloudflare-turbo",
+          "database_id": "04bb2f8f-076a-4e72-8baf-c4b533ad3ef8",
+          "migrations_dir": "../../packages/db/drizzle/migrations"
+        },
+        // Production tag cache
+        {
+          "binding": "NEXT_TAG_CACHE_D1",
+          "database_name": "next-cloudflare-turbo-tag",
+          "database_id": "e83d8129-1632-4ea7-ae56-684e09b525f3"
+        }
+      ],
+      // Production cache
+      "r2_buckets": [
+        {
+          "binding": "NEXT_INC_CACHE_R2_BUCKET",
+          "bucket_name": "next-cloudflare-turbo-cache"
+        }
+      ],
+      // Durable Object bindings must be specified per environment
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "NEXT_CACHE_DO_QUEUE",
+            "class_name": "DOQueueHandler"
+          }
+        ]
+      }
+    }
+  }
+}

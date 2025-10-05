@@ -1,0 +1,116 @@
+---
+title: CI/CD Pipelines
+description: Considerations before setting up CI/CD pipelines
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+When deploying Next.js applications that use Cloudflare D1 databases, you may encounter build failures during CI/CD processes. This section explains the architectural limitations and provides solutions for successful deployments.
+
+---
+
+## The Problem
+
+Next.js applications using Static Site Generation (SSG) that attempt to access D1 databases during the build process will fail in CI/CD environments, including both GitHub Actions and Cloudflare Workers Builds.
+
+### Why This Happens
+
+The issue stems from a fundamental architectural separation:
+
+- **Build Environment**: Runs in standard Node.js (GitHub Actions runners, Cloudflare build infrastructure)
+- **Runtime Environment**: Runs in Cloudflare Workers with access to D1 bindings
+
+During `next build`, Next.js attempts to pre-render pages that require database access, but D1 bindings are only available in the Workers runtime environment.
+
+<Callout type="warning">
+This limitation affects **both** GitHub Actions deployments and Cloudflare's native GitHub integration. The build process runs in Node.js regardless of the deployment method.
+</Callout>
+
+You'll typically see errors like:
+
+```bash
+Error occurred prerendering page "/". Read more: https://nextjs.org/docs/messages/prerender-error
+Error: Failed query: select * from "users"
+```
+
+Or:
+
+```bash
+✘ [ERROR] getCloudflareContext() can only be used in a Cloudflare Workers environment
+```
+
+---
+
+## Solutions
+
+### Option 1: Dynamic Rendering (Recommended)
+
+Convert static pages to dynamic rendering for database-dependent content:
+
+```typescript
+// Force dynamic rendering for database-dependent pages
+export const dynamic = 'force-dynamic'
+
+export default async function HomePage() {
+  const users = await getUsers() // Now runs at request time
+  
+  return (
+    <div>
+      {users.map(user => (
+        <UserCard key={user.id} user={user} />
+      ))}
+    </div>
+  )
+}
+```
+
+This can seem counter-intuitive to performance, but given the extraordinary performance of Cloudflare (zero cold-starts), this can quickly mitigate performance concerns. 
+
+### Option 2: Client-Side Data Fetching
+
+Move database calls to API routes and fetch client-side:
+
+```typescript
+// app/api/users/route.ts
+export async function GET() {
+  const users = await getUsers()
+  return Response.json(users)
+}
+
+// app/page.tsx
+'use client'
+
+export default function HomePage() {
+  const [users, setUsers] = useState([])
+  
+  useEffect(() => {
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(setUsers)
+  }, [])
+  
+  return <div>{/* Render users */}</div>
+}
+```
+
+This is not a good solution, and I hesitate to present it, but this would work. Vercel recommend using a [Data Access Layer](https://nextjs.org/blog/security-nextjs-server-components-actions) approach when thinking about your Data Handling Model and security. Anything done client side can be open to bad actors, and as such it's typically better to prefer doing as much on the server as possible. 
+
+---
+
+## Configuring CI/CD with Cloudflare
+
+If you wish to continue to configure a CI/CD pipeline using Cloudflare's native build system, see the [Automatic Deployments](/cloudflare/automatic-deployments) page for a brief tutorial.
+
+---
+
+## FAQs
+<Accordions>
+  <Accordion title="Why does this work in local development?">
+    During local development with `next dev`, the `initOpenNextCloudflareForDev()` function in your Next.js config provides mock Cloudflare bindings, allowing database access. However, this only works during development server mode, not during production builds.    
+  </Accordion>
+  <Accordion title="What about Partial Prerendering (PRR)">
+    [Partial Prerendering](https://nextjs.org/docs/app/getting-started/partial-prerendering) would be an excellent compromise to allow combining static and dynamic content. It is currently an experimental feature for Next.js, but is well worth investigating if you want to maintain the extra load time saved from statically generated content. 
+
+    If you want to use PRR, be sure to check the [OpenNext documentation](https://opennext.js.org/cloudflare/caching) for more information.
+  </Accordion>
+</Accordions>

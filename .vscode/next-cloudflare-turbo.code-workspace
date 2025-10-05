@@ -1,0 +1,74 @@
+{
+  "folders": [
+    {
+      "name": "App",
+      "path": "../apps/app"
+    },
+    {
+      "name": "Docs",
+      "path": "../apps/docs"
+    },
+    {
+      "name": "Database",
+      "path": "../packages/db"
+    },
+    {
+      "name": "Root",
+      "path": "../"
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "biomejs.biome",
+      "joshx.workspace-terminals",
+      "bradlc.vscode-tailwindcss",
+      "wix.vscode-import-cost"
+    ]
+  },
+  "settings": {
+    "files.exclude": {
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/node_modules": true,
+      "**/dist": true
+    },
+    "search.exclude": {
+      "**/.next": true,
+      "**/dist": true,
+      "**/.turbo": true,
+      "**/.open-next": true,
+      "**/.wrangler": true,
+      "package-lock.json": true
+    },
+    "typescript.tsdk": "Root\\node_modules\\typescript\\lib",
+    "[mdx]": {
+      "editor.wordWrap": "on"
+    },
+    "[markdown]": {
+      "editor.wordWrap": "on"
+    },
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.biome": "explicit",
+      "source.organizeImports.biome": "explicit",
+      "source.fixAll.markdownlint": "always"
+    },
+    "[typescript]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    },
+    "[json]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    },
+    "[javascript]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    },
+    "[jsonc]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    }
+  }
+}

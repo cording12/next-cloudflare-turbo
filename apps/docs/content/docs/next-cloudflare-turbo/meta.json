@@ -1,0 +1,21 @@
+{
+  "title": "Next-Cloudflare-Turbo",
+  "description": "The framework",
+  "icon": "Building",
+  "root": true,
+  "pages": [
+    "---Introduction---",
+    "index",
+    "workers-v-traditional-hosting",
+    "architecture",
+    "---Setup---",
+    "getting-started",
+    "manual-setup",
+    "advanced-setup",
+    "llms",
+    "---Local Development---",
+    "vscode-and-monorepos",
+    "ci-cd",
+    "known-issues"
+  ]
+}

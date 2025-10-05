@@ -1,0 +1,43 @@
+---
+title: Overview
+description: Using the Cloudflare dashboard for day-to-day operations
+icon: Album
+---
+
+This section focuses on using the Cloudflare dashboard to manage and monitor your deployed applications. Once your Next.js application is running on Cloudflare Workers, the dashboard becomes your primary interface for viewing logs, querying databases, managing deployments, and understanding how your application performs in production.
+
+Unlike the Next-Cloudflare-Turbo and App sections (which cover development and configuration) these guides assume your application is already deployed and focuses on operational tasks - checking logs when something goes wrong, running database queries, viewing analytics, and managing deployments.
+
+---
+
+## In this section
+
+This section covers the essential dashboard features you'll use regularly:
+
+- **Workers & Pages** - Understanding your deployments, viewing request logs, managing custom domains, and navigating deployment history.
+- **D1 Databases** - Using the D1 console to run queries, inspect table structures, view data directly, and understand migration status.
+- **Account Settings** - Managing API tokens, understanding usage limits, and navigating billing information.
+
+---
+
+## Before you start
+
+These guides assume you have:
+- Completed the [Getting Started](/next-cloudflare-turbo/getting-started) setup
+- Deployed your application to Cloudflare at least once
+- Access to your Cloudflare dashboard at [dash.cloudflare.com](https://dash.cloudflare.com)
+
+If you haven't deployed yet, complete the initial setup first. These guides will be more useful once you have a live application to manage.
+
+---
+
+## Next steps
+
+Start with the [Dashboard Overview](/cloudflare/dashboard-overview) to understand the dashboard structure, then explore specific features as needed.
+
+<Cards>
+    <Card href="/cloudflare/dashboard-overview" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="Dashboard Overview" description="Navigate the Cloudflare dashboard and find key features."/>
+    <Card href="/cloudflare/workers-and-pages" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="Workers & Pages" description="Manage deployments, view logs, and configure domains."/>
+    <Card href="/cloudflare/d1-databases" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="D1 Databases" description="Query databases, inspect tables, and manage data."/>
+    <Card href="/cloudflare/automatic-deployments" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="Automatic Deployments" description="Configure automatic deployments by connecting to Git."/>
+</Cards>

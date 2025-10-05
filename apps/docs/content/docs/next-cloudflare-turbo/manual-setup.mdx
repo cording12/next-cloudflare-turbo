@@ -1,0 +1,209 @@
+---
+title: Manual setup
+description: Manually setting up D1, applying migrations, and seeding your database
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+## Creating and setting up D1
+Before you begin, ensure your terminal is created in the root of the application you will be using your databases in. This guide assumes `apps/app` is the target application.
+
+<Callout>For more detailed instructions, see the [Cloudflare D1 documentation](https://developers.cloudflare.com/d1/get-started/#2-create-a-database)</Callout>
+
+<Steps>
+    <Step> 
+    **Create the D1 database**
+    
+    ```npm title="apps/app"
+    npx wrangler d1 create your-database-name
+    ```    
+    </Step>
+    <Step>
+    **Copy the database ID**
+
+    The CLI tool will output the details of your new D1 database. Copy/save your `database_id`
+
+    ```bash
+    ✅ Successfully created DB 'your-database-name' in region WEUR
+    Created your new D1 database.
+
+    {
+    "d1_databases": [
+            {
+                "binding": "DB", 
+                "database_name": "your-database-name", # [!code highlight]
+                "database_id": "DATABASE_ID_HERE" # [!code highlight]
+            }
+        ]
+    }
+    ```
+    </Step>
+    <Step>
+    **Add your D1 database configuration to `wrangler.jsonc`**
+
+    `wrangler` will default to using a local migrations directory which will result in errors as we are using a centralised database package.
+
+    Add the `migrations_dir` value to the database configuration, ensuring it points to where your migrations are saved (a relative path from where `wrangler.jsonc` is located):
+
+    ```json title="wrangler.jsonc"
+    {
+        "$schema": "../../node_modules/wrangler/config-schema.json",
+        "name": "next-cloudflare-turbo",
+        "main": ".open-next/worker.js",
+        "compatibility_date": "2025-03-01",
+        "compatibility_flags": [
+            "nodejs_compat",
+            "global_fetch_strictly_public"
+        ],
+        "assets": {
+            "binding": "ASSETS",
+            "directory": ".open-next/assets"
+        },
+        "d1_databases": [
+            {
+            "binding": "DB",
+            "database_name": "your-database-name", // [!code highlight]
+            "database_id": "DATABASE_ID_HERE", // [!code highlight]
+            "migrations_dir": "../../packages/db/drizzle/migrations" // [!code highlight]
+            }
+        ]
+    }    
+    ```
+    </Step>
+    <Step>
+    **Add your database name to package.json**
+    
+    While we're using the full `wrangler` commands in this guide, they are also in the `package.json` scripts for convenience. Ensure you change the default database name (next-cloudflare-turbo) to match your database name
+
+    ```json title="package.json"
+      "scripts": {
+        "----- Database Local": "───────────────────────────────────────",
+        "db:migrate:local": "wrangler d1 migrations apply next-cloudflare-turbo --local",
+        "db:list:local": "wrangler d1 migrations list next-cloudflare-turbo --local",
+        "db:seed:local": "wrangler d1 execute next-cloudflare-turbo --local --file=../../packages/db/seed.sql",
+        "db:validate:local": "wrangler d1 execute next-cloudflare-turbo --local --command=\"SELECT name FROM sqlite_master WHERE type='table';\"",
+        "----- Database: Production": "───────────────────────────────────────",
+        "db:migrate:prod": "wrangler d1 migrations apply next-cloudflare-turbo --remote",
+        "db:info:prod": "wrangler d1 info next-cloudflare-turbo",
+        "db:seed:prod": "wrangler d1 execute next-cloudflare-turbo --file=../../packages/db/seed.sql --remote",
+        "db:validate:prod": "wrangler d1 execute next-cloudflare-turbo --remote --command=\"SELECT name FROM sqlite_master WHERE type='table';\""
+    }
+    ```
+    </Step>
+    <Step>
+    **Generate types**
+
+    Run `npm run cf-typegen` to ensure the new bindings are accessible when using `getCloudflareContext()`
+    </Step>
+</Steps>
+
+---
+
+## Migrations
+The database configuration, migrations and seed scripts are all part of our monorepo package `@nct/db` which is located in `packages/db`. This is where you make changes to the database schema and generate migrations. 
+
+In order to **apply** migrations, you must change over to the target application; in this example `apps/app`.
+
+<Steps>
+    <Step>
+        **Generate migrations**
+        
+        From the `packages/db` folder run the command:
+
+        ```npm title="packages/db"
+        npm run db:generate
+        ```
+    </Step>
+    <Step>
+        **Apply migrations**
+        ```npm title="apps/app"
+        npx wrangler d1 migrations apply DATABASE_NAME --local
+        ```
+
+        The `--local` flag signifies to `wrangler` that this is being done on the local database, and not the one in your Cloudflare account. 
+
+        Local D1 databases are stored in your filesystem, in `.wrangler/state/v3/d1/miniflare-D1DatabaseObject`
+
+        <Callout>
+            There is a convenience script in the `package.json` called `db:migrate:local`. You can modify this with your DATABASE_NAME and run `npm run db:migrate:local` instead of the full `wrangler` command instead
+        </Callout>
+    </Step>
+</Steps>
+
+---
+
+## Seeding the database
+Once you have successfully setup your D1 database and applied migrations, you can now seed the local database.
+
+<Steps>
+    <Step>
+        **Run the seed script**
+
+        ```npm title="apps/app"
+        npx wrangler d1 execute DATABASE_NAME --local --file=../../packages/db/seed.sql
+        ```
+
+        You can adjust the `--file` argument to point to your seed script
+
+        <Callout>
+            There is also a convenience script in the app's `package.json` file which can be run with `npm run db:seed:local`
+        </Callout>
+    </Step>
+    <Step>
+        **Optional: Validate the local database**
+        ```npm title="apps/app"
+        npx wrangler d1 execute DATABASE_NAME --local --command="SELECT name FROM sqlite_master WHERE type='table';"
+        ```
+    </Step>
+</Steps>
+
+---
+
+## Applying migrations/seeding the remote database
+Once everything is working locally, you can repeat the migration and seed steps to applying migrations/seed your remote database instead. 
+
+To do so, just replace the `--local` command with `--remote` instead - all commands are the same.
+
+---
+
+## FAQ
+
+<Accordions>
+    <Accordion title="What is the 'binding' value?">
+        The binding value of your D1 database is the name used to reference the database. In this example, it is set to `DB`. This means when you interact with your database, you would do so using `env.DB`:
+
+        ```typescript
+        // Example code: https://opennext.js.org/cloudflare/howtos/db#d1-example
+
+        import { cache } from "react"
+
+        import { createDrizzleD1 } from "@nct/db"
+        import { getCloudflareContext } from "@opennextjs/cloudflare"
+
+        export const getDb = cache(() => {
+            const { env } = getCloudflareContext()
+            return createDrizzleD1(env.DB) // [!code highlight]
+        })
+
+        // For static routes (i.e. ISR/SSG)
+        export const getDbAsync = cache(async () => {
+            const { env } = await getCloudflareContext({ async: true })
+            return createDrizzleD1(env.DB) // [!code highlight]
+        })
+
+        ```
+
+        For more information, see [bind your worker to your D1 database](https://developers.cloudflare.com/d1/get-started/#3-bind-your-worker-to-your-d1-database).
+    </Accordion>
+
+    <Accordion title="How do I apply migrations/seed to different environments?">
+        If you have `staging` and `production` environments configured in your `wrangler.jsonc`, you simply need to add the `--env` flag followed by the environment name to run the command.
+
+        For example `--env staging`. This might look like:
+
+        ```npm title=apps/app
+        npx wrangler d1 migrations apply DATABASE_NAME --env staging --remote
+        ```
+    </Accordion>
+
+</Accordions>

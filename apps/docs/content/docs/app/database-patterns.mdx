@@ -1,0 +1,219 @@
+---
+title: Database patterns
+description: Working with D1 databases on Cloudflare Workers
+---
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+## Understanding the connection model
+
+Cloudflare Workers use a fundamentally different approach to database connections than traditional Next.js deployments. There are no persistent connections or connection pools. Instead, each request receives a fresh connection via a binding, which automatically closes when the request completes.
+
+This means you cannot create a global database client. You must create a new client for each request, and any adapter that attempts to reuse connections will fail.
+
+<Callout>See [OpenNext: Database & ORM](https://opennext.js.org/cloudflare/howtos/db) for more detail.</Callout>
+
+This works in three simple steps:
+
+<Wrapper>![Database configuration](https://assets.cording.dev/database_path.png)</Wrapper>
+
+---
+
+## The database package
+The `@nct/db` package provides a connection factory that creates Drizzle clients for D1:
+
+```tsx title="packages/db/src/index.ts"
+import type { D1Database } from "@cloudflare/workers-types"
+import { drizzle } from "drizzle-orm/d1"
+
+export * from "./schema/posts.sql"
+export * from "./schema/users.sql"
+export * from "./types/posts.types"
+export * from "./types/users.types"
+
+import { posts } from "./schema/posts.sql"
+import { users } from "./schema/users.sql"
+
+export const schema = {
+  users,
+  posts,
+} as const
+
+// Connection factory - called per request
+export function createDrizzleD1(d1: D1Database) {
+  return drizzle(d1, { schema })
+}
+
+export type Database = ReturnType<typeof createDrizzleD1>
+```
+
+The `createDrizzleD1()` function is called fresh for each request, ensuring no connection reuse.
+
+<Callout>Read more about the database package in [working with your database](/app/working-with-your-database)</Callout>
+
+---
+
+## Request-time vs build-time access
+
+The application layer wraps the connection factory with context-aware helpers:
+
+```tsx title="app/src/lib/db.ts"
+// Example code: https://opennext.js.org/cloudflare/howtos/db#d1-example
+
+import { cache } from "react"
+
+import { createDrizzleD1 } from "@nct/db"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
+
+export const getDb = cache(() => {
+  const { env } = getCloudflareContext()
+  return createDrizzleD1(env.DB)
+})
+
+// For static routes (i.e. ISR/SSG)
+export const getDbAsync = cache(async () => {
+  const { env } = await getCloudflareContext({ async: true })
+  return createDrizzleD1(env.DB)
+})
+```
+These functions handle the key distinction in Cloudflare Workers deployments:
+
+- `getDb()` is for live requests in Server Components. When a user hits your application, the Cloudflare context is immediately available synchronously.
+- `getDbAsync()` is for build-time operations like static generation and ISR. During builds, there's no incoming request, so the context must be accessed asynchronously.
+
+Both functions use React's cache() to prevent duplicate database calls within a single render.
+
+<Callout>Using the wrong function will cause build failures. If you see errors during static generation, simply switch to getDbAsync().</Callout>
+
+--- 
+## Accessing environment bindings
+
+The `getCloudflareContext()` pattern differs from traditional Next.js deployments where you may use `process.env`:
+```tsx
+// Cloudflare Workers
+const { env } = getCloudflareContext()
+const db = createDrizzleD1(env.DB) // from @nct/db // [!code highlight] 
+
+// vs Traditional (won't work in Workers)
+const db = createClient(process.env.DATABASE_URL)
+```
+
+Workers don't have `process.env`. Instead, bindings are defined in `wrangler.jsonc` and accessed through the Cloudflare context:
+
+```json title="app/wrangler.jsonc"
+  "d1_databases": [
+    {
+      "binding": "DB", //[!code highlight]
+      "database_name": "next-cloudflare-turbo",
+      "database_id": "04bb2f8f-076a-4e72-8baf-c4b533ad3ef8",
+      "migrations_dir": "../../packages/db/drizzle/migrations"
+    }
+  ]
+```
+The binding property determines the environment key. A binding named `DB` is accessed as `env.DB`. You could name this anything you want. If it were `CF_DATABASE`, the accessor would be `env.CF_DATABASE`.
+
+<Callout>For more information, see [Cloudflare: Environment Variables](https://developers.cloudflare.com/workers/configuration/environment-variables/)</Callout>
+
+---
+## Organising the data layer
+
+<Wrapper background="solid">
+  <Folder name="src" defaultOpen>
+    <Folder name="data" defaultOpen>
+      <Folder name="users" defaultOpen>
+        <Folder name="actions" defaultOpen>
+          <File name="create.ts" />
+          <File name="delete.ts" />
+          <File name="index.ts" />
+          <File name="update.ts" />
+        </Folder>
+        <Folder name="queries" defaultOpen>
+          <File name="get-user-by-id.ts" />
+          <File name="get-users.ts" />
+          <File name="index.ts" />
+        </Folder>
+        <File name="index.ts" />
+        <File name="types.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</Wrapper>
+
+Queries and Actions are kept separately for a clear divide between read and write operations. Queries use React's `cache()` for deduplication, and Actions utilise the `"use server"` directive.
+
+<Callout>
+Exporting queries and actions through the index.ts file allows for cleaner imports:
+
+`import { getUsers, createUser } from "@/data/users"`
+</Callout>
+
+---
+
+## Query patterns and examples
+
+Queries follow standard Drizzle patterns, with the database client obtained from the appropriate helper:
+
+### Read Operations (Queries)
+
+```tsx title="src/data/users/queries/get-users.ts"
+import { getDbAsync } from "@/lib/db"
+import { users } from "@nct/db/schema"
+
+export async function getUsers() {
+  const db = await getDbAsync()
+  return await db.select().from(users)
+}
+```
+
+### Write Operations (Mutations)
+
+```tsx title="src/data/users/actions/create.ts"
+"use server"
+
+import { getDbAsync } from "@/lib/db"
+import { users } from "@nct/db/schema"
+
+export async function createUser(data: NewUser) {
+  const db = await getDbAsync()
+  return await db.insert(users).values(data).returning()
+}
+```
+
+The actual query syntax is identical to standard Drizzle. The only difference is how you obtain the database client.
+
+---
+
+## FAQ
+<Accordions>
+    <Accordion title="What if my function is called at build-time and request-time">
+    You can safely use `getDbAsync()`. 
+
+    As an example, lets say you have the `getUsers()` function which fetches all users from the database. You may want your application to statically build the page using this so that it loads instantly upon first-render for the user.
+
+    Likewise, you may also have performed mutations on the application and then use the same `getUsers()` function (via revalidation) to update the users that are being displayed. In this instance, `getDbAsync()` will work for both use cases.
+    </Accordion>
+    <Accordion title="Can I just use getDbAsync() for everything?">
+    The short answer is **you can**. 
+
+    Using `getDbAsync()` can add a tiny bit of overhead when there is a live request, because you're going through an `async` path (meaning you have an `await`.) 
+
+    Due to the nature of Cloudflare Workers, this shouldn't really be noticeable.
+    </Accordion>    
+    <Accordion title="Why have two separate functions then?">
+    Primarily for clarity and ergonomics. `getDb()` sends a clear signal to you, and your team, that you are dealing with a live request. Ergonomically, you also do not need to use `await` in request-handlers/Server Actions if you use `getDb()`.    
+    </Accordion>
+    <Accordion title="Can I just create a single wrapper function?">
+    Yes. If you want a single import everywhere, you can just make a small wrapper that simply tries the sync path, and falls to the async if it fails. This might look something like:
+
+    ```tsx
+      try {
+        const { env } = getCloudflareContext()       // request-time
+        return createDrizzleD1(env.DB)
+      } catch {
+        const { env } = await getCloudflareContext({ async: true }) // SSG/ISR
+        return createDrizzleD1(env.DB)
+      }
+    ```
+    <Callout type="warning">This code is untested and merely here as an illustration.</Callout>
+    </Accordion>
+</Accordions>

@@ -1,0 +1,167 @@
+---
+title: Issues & Errors
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+## Windows users
+Next.js has had persistent issues on Windows, especially Windows 10, even up to Next.js 15. Many users report development-server problems such as slow hot reload, caching failures, or module resolution errors on Windows 10, while Windows 11 users generally experience fewer issues.
+
+Because `@opennextjs/cloudflare` is built on Next.js, any Windows-specific bugs must be resolved in Next.js itself. Unless Next.js improves support, minimal patches are applied to `@opennextjs/cloudflare`. See [Windows Support](https://opennext.js.org/cloudflare#windows-support) for details.
+
+For avoidance of doubt, it's typically best to develop using [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install). 
+
+<Callout type="info">Windows users should enable [**Developer Mode**](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development).</Callout>
+
+---
+
+## Package managers
+This project uses `npm`. On Windows `pnpm` or `yarn` can introduce errors, often due to [symlinks or junction handling](https://learn.microsoft.com/en-us/windows/win32/fileio/hard-links-and-junctions).
+
+Enabling [**Developer Mode**](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) helps mitigate many of these issues, but some remain. `npm` is typically more reliable on Windows because it avoids complex symlink logic.
+
+While `pnpm` offers symlink optimisation and addresses certain [Windows-specific concerns](https://pnpm.io/faq#does-it-work-on-windows), in combination with Next.js's imperfect Windows support, it may slow down development. 
+
+It is often more efficient to use `npm`. In my experience, I spent more time debugging module resolution errors with `pnpm` than waiting on `npm` installs.
+
+---
+
+## Error Messages
+### Module not found: Can't resolve '@nct/db'
+This happens when attempting to run the `app` without first running either the `dev` or `build` command for the `database` package. You have likely freshly cloned the repo, or deleted the `dist` folder in the `@nct/db` package and then attempted to run `turbo run dev` from the `app` directory.
+
+Run either the `dev` or `build` command in the `@nct/db` package to ensure a `dist` folder is generated.
+
+### Error: no such table: users: SQLITE_ERROR
+This happens as a result of attempting to run `turbo run dev` in the `apps/app` project without first applying migrations to the local database.
+
+From the `apps/app` folder, run:
+
+1. `npm run db:migrate:local`. This applies migrations to the local instance of D1.
+2. `npm run db:seed:local`. This seeds the local database with data.
+
+You will also need to apply migrations/seed the staging and production environment tables.
+
+### ERR_UNSUPPORTED_ESM_URL_SCHEME 
+This error appears, occasionally, when running `preview` commands for the `@opennextjs/cloudflare` package on Windows platforms. 
+
+The `retrieveCompiledConfig()` under-the-hood is able to accept a raw absolute Windows path (`C:\..`) rather than a proper `file://` URI. 
+
+If you run into this error, you can fix it using the below:
+
+1. From the monorepo root, open `node_modules` and navigate to `@opennextjs\cloudflare\dist\cli\commands\utils.ts`
+2. Open `utils.ts` and add `import { pathToFileURL } from "url"` to the file imports
+3. Replace the line `const config = await import(configPath).then((mod) => mod.default)` with `const config = await import(pathToFileURL(configPath).href).then((mod) => mod.default)`:
+    ```tsx title="@opennextjs\cloudflare\dist\cli\commands\utils.ts"
+    import { pathToFileURL } from "url"; //[!code highlight]
+
+    /**
+     * Retrieve a compiled OpenNext config, and ensure it is for Cloudflare.
+     *
+     * @returns OpenNext config.
+     */
+    export async function retrieveCompiledConfig() {
+        const configPath = path.join(nextAppDir, ".open-next/.build/open-next.config.edge.mjs");
+
+        if (!existsSync(configPath)) {
+            logger.error("Could not find compiled Open Next config, did you run the build command?");
+            process.exit(1);
+        }
+
+        // const config = await import(configPath).then((mod) => mod.default); // [!code highlight]
+        const config = await import(pathToFileURL(configPath).href).then((mod) => mod.default); // [!code highlight]
+        
+        ensureCloudflareConfig(config);
+
+        return { config };
+    }
+    ```
+4. Attempt to run `npm run preview` again and the problem should be solved.
+
+A problem with this is that every time you run an `npm install` command, re-install `node_modules` etc. it will remove your patch. 
+
+You can use [patch-package](https://www.npmjs.com/package/patch-package) to have this automated once you have made the required changes.
+
+1. From the monorepo root, run `npm i patch-package --save-dev`
+2. Run `npx patch-package @opennextjs/cloudflare`
+3. In your package.json, add the script: `"postinstall": "patch-package"`
+    ```json title="package.json"
+    "scripts": {
+        +  "postinstall": "patch-package"
+    }
+    ```
+
+This should create a new folder called `patches` in your monorepo root. Inside it, a new file should exist called `@opennextjs+cloudflare+1.6.1.patch`. The 1.6.1 denotes the version of `@opennextjs/cloudflare` that you are using. In this case, we are using version 1.6.1. The changes made to the `utils.ts` file are picked up by `patch-package` and added to a `.patch` file. Below is an example of what this looks like:
+
+
+```bash title="@opennextjs+cloudflare+1.6.1.patch"
+diff --git a/node_modules/@opennextjs/cloudflare/dist/cli/commands/utils.js b/node_modules/@opennextjs/cloudflare/dist/cli/commands/utils.js
+index 562ba80..d232437 100644
+--- a/node_modules/@opennextjs/cloudflare/dist/cli/commands/utils.js
++++ b/node_modules/@opennextjs/cloudflare/dist/cli/commands/utils.js
+@@ -7,6 +7,7 @@ import { printHeader, showWarningOnWindows } from "@opennextjs/aws/build/utils.j
+ import logger from "@opennextjs/aws/logger.js";
+ import { unstable_readConfig } from "wrangler";
+ import { createOpenNextConfigIfNotExistent, ensureCloudflareConfig } from "../build/utils/index.js";
++import { pathToFileURL } from "url";
+ export const nextAppDir = process.cwd();
+ /**
+  * Print headers and warnings for the CLI.
+@@ -39,7 +40,8 @@ export async function retrieveCompiledConfig() {
+         logger.error("Could not find compiled Open Next config, did you run the build command?");
+         process.exit(1);
+     }
+-    const config = await import(configPath).then((mod) => mod.default);
++    // const config = await import(configPath).then((mod) => mod.default);
++    const config = await import(pathToFileURL(configPath).href).then((mod) => mod.default);
+     ensureCloudflareConfig(config);
+     return { config };
+ }
+```
+
+<Callout type="info">While you can copy the above patch file and place it in the correct filepath, it's typically better to validate and generate the fix yourself.</Callout>
+
+### Unknown argument: \\.open-next\\cache\\id\\_not-found.cache
+This is caused by a Windows path quoting bug in the opennextjs adapter. It is most likely that your project's file path has a space in it, which is causing the issue, for example: `C:\my projects\next-cloudflare-turbo`. 
+
+Move your project to a file path without spaces, for example: `C:\code\next-cloudflare-turbo`
+
+### Authentication error [code: 10000]
+<Callout type="error">A request to the Cloudflare API (/accounts/ACCOUNT_ID/d1/database/DATABASE_ID/import) failed.</Callout>
+
+This is an error that can occur when performing D1 operations via the Wrangler CLI. [Issue #9320](https://github.com/cloudflare/workers-sdk/issues/9320) discusses this in greater detail, but to fix:
+
+<Steps>
+    <Step>
+        From the CLI run:
+        ```npm
+        npx wrangler logout
+        ```        
+    </Step>
+    <Step>
+        Delete all local `.wrangler` folders
+    </Step>
+    <Step>
+        From the CLI run:
+        ```npm
+        npx wrangler login
+        ```
+    </Step>
+    <Step>
+        You can validate you are logged in using:
+        ```npm
+        npx wrangler whoami
+        ```
+    </Step>
+</Steps>
+
+### Caching Durable Objects
+<Callout type="error">
+A DurableObjectNamespace in the config referenced the class "DOQueueHandler", but no such Durable Object class is exported from the worker.
+</Callout>
+If you see the above error then you can safely ignore it. Durable Objects do not work in local environments. This is explained in more detail in the OpenNext [Known issues](https://opennext.js.org/cloudflare/known-issues) page.
+
+### Property 'DB' does not exist on type 'CloudflareEnv'.
+
+This error is caused after trying to access a Cloudflare Binding, but it not existing in the `cloudflare-env.d.ts` file. 
+
+From the root of the relevant application, run `npm run cf-typegen` to automatically generate types based off your `wrangler.jsonc` configuration.

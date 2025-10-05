@@ -1,0 +1,83 @@
+---
+title: Overview
+icon: Album
+description: Introduction to the Next-Cloudflare-Turbo framework
+---
+## What is Next-Cloudflare-Turbo?
+Next-Cloudflare-Turbo is a **production-ready template** that shows you how to build modern full-stack applications using Cloudflare's edge infrastructure. Instead of juggling multiple platforms and services, everything runs on Cloudflare's global edge network.
+
+Cloudflare's network, generous free tiers, and built-in performance and security optimisations make it a one-stop platform for high-performance apps. 
+
+<Callout>
+    Not sure if Cloudflare Workers is right for your project? See [Workers vs. Traditional Hosting](/next-cloudflare-turbo/workers-v-traditional-hosting) to understand the trade-offs.
+</Callout>
+
+### Why Choose This Stack?
+
+**Built for Performance**
+- Your application runs on Cloudflare's global edge network (280+ cities worldwide)
+- Sub-100ms response times for users anywhere in the world
+- Zero cold starts and instant scaling
+
+**Cost Effective**
+- Generous free tiers across all Cloudflare services
+- No egress fees for data transfer
+- Pay only for what you actually use
+
+**Developer Experience**
+- Full Next.js support including Server Actions, API routes, and middleware
+- Type-safe database operations with Drizzle ORM
+- Monorepo structure for organised, scalable development
+- One platform for database, storage, compute, and deployment
+
+---
+
+## What's Included
+This template integrates everything you need for a modern web application:
+
+### Core Framework
+- **Next.js Application** - The main frontend with server-side rendering, API routes, and Server Actions
+- **Turborepo** - Monorepo management for organised code and shared packages
+- **TypeScript** - Full type safety across the entire stack
+
+### Cloudflare Infrastructure
+- **[Cloudflare Workers](https://developers.cloudflare.com/workers/)** - Serverless compute that runs your Next.js app at the edge
+- **[D1 Database](https://developers.cloudflare.com/d1/)** - Serverless SQL database with global replication
+- **[R2 Storage](https://developers.cloudflare.com/r2/)** - Object storage for files and caching (S3-compatible, zero egress fees)
+- **[Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)** - Development and deployment tool
+
+### Built-in Features
+- **Database Layer** - Drizzle ORM with type-safe queries and migrations
+- **Caching Strategy** - Intelligent caching for optimal performance
+- **Documentation Site** - Built with Fumadocs for your project docs
+
+---
+
+## Architecture Overview
+
+The template uses a **monorepo structure** that keeps everything organised whilst allowing for easy scaling:
+
+### Applications (`/apps`)
+**Main App** - Your primary Next.js application with dashboard, user management, and data visualisation  
+**Documentation** - This documentation site built with Next.js and Fumadocs
+
+### Shared Packages (`/packages`)
+**Database Package** (`@nct/db`) - Drizzle ORM setup, schemas, and database utilities shared across applications  
+**TypeScript Config** (`@nct/typescript-config`) - Shared TypeScript configurations
+
+### Cloudflare Services
+Your applications deploy to **Cloudflare Workers**, with direct access to D1 databases, R2 storage, and other Cloudflare services through native bindings.
+
+<Callout type="info">
+**Why This Matters:** This architecture allows you to add new applications that immediately benefit from the existing database layer, and infrastructure setup.
+</Callout>
+
+---
+
+## Next steps
+<Cards>
+    <Card href="/next-cloudflare-turbo/getting-started" icon={<Building className="text-[var(--next-cloudflare-turbo-color)]" />} title="Getting started" description="Get up and running with Next-Cloudflare-Turbo."/>
+    <Card href="/next-cloudflare-turbo/architecture" icon={<Building className="text-[var(--next-cloudflare-turbo-color)]" />} title="Architecture" description="Understand the Cloudflare/Next.js ecosystem."/>
+    <Card href="/app" icon={<AppWindow className="text-[var(--app-color)]" />} title="App" description="Deep-dive into the app and understand its construction."/>
+    <Card href="/cloudflare" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="Cloudflare" description="Walkthrough the Cloudflare dashboard and see how everything works." />
+</Cards>

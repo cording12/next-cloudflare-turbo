@@ -1,0 +1,281 @@
+---
+title: Creating a Worker
+description: Creating a new Cloudflare Worker in the monorepo
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Overview
+**Estimated time: 5-10 minutes**
+
+This guide shows you how to create a new Cloudflare Worker within your Next-Cloudflare-Turbo monorepo structure. Workers are serverless functions that run on Cloudflare's edge network, perfect for API endpoints, middleware, or standalone applications.
+
+This guide uses a PostHog [Reverse Proxy](https://posthog.com/docs/advanced/proxy/cloudflare) as an example, but the same process applies to any Worker type.
+
+For a comprehensive breakdown of Cloudflare Workers, see the [Cloudflare Documentation](https://developers.cloudflare.com/workers/). 
+
+### Prerequisites
+- Existing Next-Cloudflare-Turbo project setup
+- [Node v22.17.0 (LTS)](https://nodejs.org/en/blog/release/v22.17.0) installed
+- [Cloudflare account](https://dash.cloudflare.com/) with Wrangler authentication
+
+---
+
+## Creating a Worker
+
+<Steps>
+    <Step>
+        **Navigate to the apps directory**
+        
+        From your project root, navigate to the `apps` directory where all applications are housed:
+        
+        ```bash
+        cd apps
+        ```
+    </Step>
+    
+    <Step>
+        **Run the create-cloudflare command**
+        
+        Use Cloudflare's C3 CLI to create a new Worker project:
+        
+        ```npm
+        npm create cloudflare@latest -- worker-name
+        ```
+        
+        Replace `worker-name` with your desired Worker name (e.g., `api-worker`, `auth-middleware`, `image-processor`). In this example, it was called `posthog`.
+        
+        <Callout type="info">
+        The `--` separates npm arguments from the package arguments, ensuring the worker name is passed correctly to the create-cloudflare CLI.
+        </Callout>
+    </Step>
+    
+    <Step>
+        **Configure the Worker options**
+        
+        You'll be prompted with several configuration questions. For a basic Worker setup, select:
+        
+        - **What would you like to start with?**: `Hello World example`
+        - **Which template would you like to use?**: `Worker only`
+        - **Which language do you want to use?**: `TypeScript`
+        - **Do you want to use git for version control?**: `No` (you're already in a monorepo with git)
+        - **Do you want to deploy your application?**: `No` (we'll make changes first)
+        
+        ```bash tab="Example Output"
+        ╭ Create an application with Cloudflare Step 1 of 3
+        │
+        ├ In which directory do you want to create your application?
+        │ dir ./posthog
+        │
+        ├ What would you like to start with?
+        │ category Hello World example
+        │
+        ├ Which template would you like to use?
+        │ type Worker only
+        │
+        ├ Which language do you want to use?
+        │ lang TypeScript
+        │
+        ├ Copying template files
+        │ files copied to project directory
+        │
+        ├ Updating name in `package.json`  
+        │ updated `package.json`
+        │
+        ├ Installing dependencies
+        │ installed via `npm install`
+        │
+        ╰ Application created
+
+        ╭ Configuring your application for Cloudflare Step 2 of 3
+        │
+        ├ Installing wrangler A command line tool for building Cloudflare Workers
+        │ installed via `npm install wrangler --save-dev`
+        │
+        ├ Retrieving current workerd compatibility date
+        │ compatibility date 2025-08-16
+        │
+        ├ Generating types for your application
+        │ generated to `./worker-configuration.d.ts` via `npm run cf-typegen`
+        │
+        ├ You're in an existing git repository. Do you want to use git for version control?
+        │ no git
+        │
+        ╰ Application configured 
+
+        ╭ Deploy with Cloudflare Step 3 of 3
+        │
+        ├ Do you want to deploy your application?
+        │ no deploy via `npm run deploy`
+        │
+        ╰ Done
+        ```
+    </Step>
+    
+    <Step>
+        **Verify the Worker structure**
+        
+        After creation, your Worker should have the following basic structure:
+        
+        ```
+        apps/
+        └── worker-name/
+            ├── src/
+            │   └── index.ts
+            ├── wrangler.jsonc
+            ├── package.json
+            ├── tsconfig.json
+            └── README.md
+        ``` 
+        
+        The default Worker scaffold includes unnecessary files, such as a `.vscode` directory (we use that in the monorepo root), `.prettier` files, etc. Delete what you don't need.
+
+    </Step>
+    
+    <Step>
+        **Test the Worker locally**
+        
+        Start the development server to ensure everything is working:
+        
+        ```bash
+        turbo run dev
+        ```
+        
+        Your Worker will be available at `http://localhost:8787` and should display "Hello World!" when visited.
+        
+        <Callout type="info">
+        Press `Ctrl+C` to stop the development server when you're finished testing.
+        </Callout>
+    </Step>
+
+    <Step>
+        **Replace the default "Hello World" code with your specific implementation.**
+
+        In this example, we'll create a PostHog reverse proxy:
+
+        ```typescript title="src/index.ts"
+        const API_HOST = "eu.i.posthog.com"
+        const ASSET_HOST = "eu-assets.i.posthog.com"
+
+        async function handleRequest(request: Request, ctx: ExecutionContext) {
+        const url = new URL(request.url)
+        const pathname = url.pathname
+        const search = url.search
+        const pathWithParams = pathname + search
+
+        if (pathname.startsWith("/static/")) {
+            return retrieveStatic(request, pathWithParams, ctx)
+        }
+        return forwardRequest(request, pathWithParams)
+        }
+
+        async function retrieveStatic(
+        request: Request,
+        pathname: string,
+        ctx: ExecutionContext
+        ) {
+        let response = await caches.default.match(request)
+        if (!response) {
+            response = await fetch(`https://${ASSET_HOST}${pathname}`)
+            ctx.waitUntil(caches.default.put(request, response.clone()))
+        }
+        return response
+        }
+
+        async function forwardRequest(request: Request, pathWithSearch: string) {
+        const originRequest = new Request(request)
+        originRequest.headers.delete("cookie")
+        return await fetch(`https://${API_HOST}${pathWithSearch}`, originRequest)
+        }
+
+        export default {
+        // biome-ignore lint/correctness/noUnusedFunctionParameters: env param required to satisfy ExportedHandler<Env>
+        async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+            return handleRequest(request, ctx)
+        },
+        } satisfies ExportedHandler<Env>
+
+        ```
+    </Step>
+
+    <Step>
+<Step>
+       **Deploy the Worker**
+       
+       Once you're satisfied with your implementation, deploy to production:
+        ```bash
+        npx wrangler deploy
+        ```
+       
+       <Callout type="info">You can also deploy later after further testing and configuration.</Callout>
+    </Step>
+    </Step>
+</Steps>
+
+---
+
+## Understanding the Generated Files
+
+### `src/index.ts`
+The main Worker code containing your request handler:
+
+```typescript
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return new Response('Hello World!');
+  },
+};
+```
+
+### `wrangler.jsonc`
+Configuration file for the Worker deployment:
+
+```json
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "posthog",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-08-16",
+  "observability": {
+    "enabled": true
+  },
+  /**
+   * Smart Placement
+   * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+   */
+  "placement": { "mode": "smart" },
+  "routes": [
+    {
+      "pattern": "ph.cording.dev",
+      "custom_domain": true
+    }
+  ]
+}
+```
+- The default `jsonc` file will set the `$schema` directory as `node_modules/wrangler/config-schema.json`. As we are using a monorepo, the `wrangler` installation is hoisted to the root `node_modules`. In this instance, we change the path to `../../node_modules/wrangler/config-schema.json`.
+- [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement) is activated in this configuration.
+- A [custom domain](https://developers.cloudflare.com/workers/configuration/routing/) is applied via the `routes` key. You can remove this, or change it to your own custom domain. If you remove it, the default workers domain will be used, which would be `worker-name.your-cloudflare-username.workers.dev`
+
+### Package Scripts
+Common development commands available:
+
+- `turbo run dev` - Start local development server
+- `npm run deploy` - Deploy to production
+- `npm run tail` - View live logs
+- `npm run cf-typegen` - Generate TypeScript types
+
+---
+
+## Next Steps
+
+Now that you have a basic Worker created, you can:
+
+1. **Customise the Worker logic** in `src/index.ts` for your specific use case
+2. **Add environment variables** to `wrangler.jsonc` for configuration
+3. **Configure bindings** for databases, KV stores, or R2 buckets
+4. **Set up routing** in your main application to proxy requests to the Worker
+
+<Cards>
+    <Card href="https://developers.cloudflare.com/workers/" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="Cloudflare Documentation" description="Read through the official Cloudflare Workers documentation." />
+    <Card href="https://github.com/cording12/next-cloudflare-turbo/" icon={<Github className="text-[var(--next-cloudflare-turbo-color)]" />} title="Visit GitHub" description="Visit the repository for examples and community support." />
+</Cards>

@@ -1,0 +1,181 @@
+---
+title: Workers & Pages
+description: Managing deployments, viewing logs, and configuring your Workers
+---
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+## Overview
+
+The Workers & Pages section is your primary interface for managing deployed Next.js applications. This is where you'll view logs, check deployment status, configure environment variables, and manage custom domains.
+
+Each environment you've configured (production, staging) appears as a separate Worker in this dashboard. Understanding how to navigate and use these features will make troubleshooting and monitoring significantly easier.
+
+---
+
+## Accessing your Workers
+
+From the [Cloudflare dashboard](https://dash.cloudflare.com), navigate to **Workers & Pages** in the left sidebar.
+
+<Wrapper>![Workers & Pages Dashboard](https://assets.cording.dev/cloudflare-workers-dashboard.png)</Wrapper>
+
+You'll see a list of all your Workers and Pages projects. For Next-Cloudflare-Turbo, you should see entries for:
+- `next-cloudflare-turbo` (production if other environments not configured)
+- `next-cloudflare-turbo-staging` (if configured)
+- `next-cloudflare-turbo-production` (if configured)
+- `docs-next-cloudflare-turbo` (documentation site)
+
+Click on any Worker to view its details and access management features.
+
+---
+
+## Worker overview page
+
+Once you've selected a Worker, you'll see the main overview page with several tabs:
+
+### Deployments 
+
+The default view shows your deployment history and current status. It shows your currently active deployment as well as deployment history.
+
+<Callout>
+Rolling back is instantaneous - click the three dots next to any previous deployment and select "Rollback to this deployment". This is useful for quickly reverting problematic changes.
+</Callout>
+
+### Metrics
+
+View performance data and request statistics:
+
+- **Request** - Total requests over time (hourly, daily, weekly views)
+- **Subrequest** - Requests made by a Worker to either Internet resources (`fetch()`) or to other Cloudflare services like D1, KV, and R2
+- **Errors** - Failed requests (4xx, 5xx status codes, exceeding CPU time)
+- **CPU time** - CPU time per execution, i.e. time that the CPU spent actively executing. This specifically does not include time when the CPU is waiting for something to happen (like waiting for a `fetch()`)
+- **Wall time** - Time as measured by a clock; includes time spent waiting (like waiting for a `fetch()`)
+- **Request duration** - Time taken to respond to requests, including code execution and time spent waiting on I/O. The request duration chart is currently only available when your Worker has [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement/) enabled.
+
+<Callout type="info">
+    For a detailed breakdown of all metrics, see [Metrics and analytics](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/)
+</Callout>
+
+### Logs
+
+The Logs tab provides logs of requests hitting your Worker.
+
+<Wrapper>![Real-time Logs View](https://assets.cording.dev/cloudflare-worker-logs.png)</Wrapper>
+
+**Features:**
+- Live request streaming as they happen
+- Filter by status code (200, 404, 500, etc.)
+- Filter by time range
+- Search by request path or method
+- View request/response headers and body
+
+<Callout type="warning">
+    Logs are retained for 7 days on the free tier. If you need longer retention, consider upgrading to a paid plan or implementing your own logging solution. For more details, see [Workers Logs - Limits](https://developers.cloudflare.com/workers/observability/logs/workers-logs/#limits)
+</Callout>
+
+### Settings
+
+The Settings tab contains configuration options for your Worker.
+
+#### Domains and Routes
+
+Configure [custom domains and routing](https://developers.cloudflare.com/workers/configuration/routing/) rules for your Worker.
+
+- **Custom Domains** - Assign a custom domain to your Worker
+- **Routes** - Define URL patterns that trigger your Worker
+
+<Callout>
+    If you use Cloudflare for your domains, all the heavy lifting is done for you. If you have your own domain provider, see [Add a Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/#add-a-custom-domain) for more detail.
+</Callout>
+
+#### Variables and Secrets
+
+- **Environment Variables** - Plain text configuration values accessible via `process.env`
+- **Secrets** - Encrypted values that cannot be read back after creation (for API keys, tokens, etc.)
+
+<Callout type="warning">
+It is strongly recommended to only manage Secrets and Variables via the Worker's `wrangler.jsonc` (variables), or via the Wrangler CLI (Secrets). See [Environment Variables](/app/environment-variables) for more information.
+</Callout>
+
+#### Build
+
+Configure automatic builds by connecting your Worker to a Git repository. See [Automatic Deployments](/cloudflare/automatic-deployments) for more information.
+
+### Bindings
+
+View the resources bound to your Worker. A more advanced Worker will have multiple bindings:
+
+<Wrapper>![Real-time Logs View](https://assets.cording.dev/cloudflare-worker-bindings.png)</Wrapper>
+
+These bindings are defined in your `wrangler.jsonc` file and are read-only in the dashboard. To modify bindings, update your configuration file and redeploy.
+
+---
+
+## Troubleshooting
+
+### Worker not responding
+
+- **Check deployment status** - Ensure the Worker is active and not failed
+- **Verify routes** - Confirm routes are configured correctly in Settings → Domains & Routes
+- **Check logs** - Look for errors in the Logs tab that might indicate why requests are failing
+
+### High error rates
+
+- **Filter logs by 5xx errors** - Identify the source of server errors
+- **Check resource bindings** - Ensure D1, R2, and other bindings are correctly configured
+- **Review recent deployments** - Consider rolling back if errors started after a deployment
+
+### Slow response times
+
+- **Check CPU time metrics** - Identify if requests are taking too long to execute
+- **Review database queries** - Use D1 console to check for slow queries
+- **Check cache hit rates** - Low cache hits might indicate performance issues
+
+---
+
+
+## FAQ
+
+<Accordions>
+  <Accordion title="How do I view recent errors?">
+    1. Navigate to your Worker → Logs
+    2. Filter by status code (500, 404, etc.)
+    3. Click on an error to see the stack trace
+    4. Look for the error message and line number
+    5. Cross-reference with your source code
+  </Accordion>
+
+  <Accordion title="How do I check deployment status?">
+    1. Navigate to your Worker → Deployments
+    2. Check the "Current Deployment" section
+    3. Look for the deployment time and status
+    4. If deployment failed, check the error message
+  </Accordion>
+
+  <Accordion title="How do I roll back a deployment?">
+    1. Navigate to your Worker → Deployments
+    2. Find the previous working deployment in history
+    3. Click the three dots next to it
+    4. Select "Rollback to this deployment"
+    5. Confirm the rollback
+
+    <Callout type="warning">
+    Rollbacks are immediate and affect live traffic. Ensure you're rolling back to a known-good deployment.
+    </Callout>
+  </Accordion>
+
+  <Accordion title="How do I monitor request volume?">
+    1. Navigate to your Worker → Metrics
+    2. Select your desired time range (24h, 7d, 30d)
+    3. View the request graph
+    4. Check success/error rates below
+  </Accordion>
+</Accordions>
+
+---
+
+## Next steps
+
+<Cards>
+    <Card href="/cloudflare/d1-databases" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="D1 Databases" description="Learn to query and manage your databases through the dashboard."/>
+    <Card href="/cloudflare/observability-and-logs" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="Observability & Logs" description="Deep dive into monitoring and debugging with advanced logging."/>
+</Cards>

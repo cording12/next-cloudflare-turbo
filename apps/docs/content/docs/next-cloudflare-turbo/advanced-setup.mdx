@@ -1,0 +1,454 @@
+---
+title: Advanced Setup
+description: Configuring caches and multiple environments
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+With the basic setup of Next-Cloudflare-Turbo done, this section covers more advanced configurations that see the implementation of separate `staging` and `production` environments, as well as configuring caching for use with Next.js revalidation and caching.
+
+The caching system uses:
+- **D1**: Stores cache tags for on-demand revalidation
+- **R2**: Stores incremental cache data (pages, API responses)  
+- **Durable Objects**: Manages cache invalidation queues
+
+---
+
+## Resources
+Before continuing, it may be helpful to refer to the below documentation from Cloudflare and OpenNext, as they provide much more detailed information:
+
+- [Caching](https://opennext.js.org/cloudflare/caching)
+- [Environment variables](https://opennext.js.org/cloudflare/howtos/env-vars)
+- [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/)
+- [Cloudflare Environments](https://developers.cloudflare.com/workers/wrangler/environments/)
+- [Wrangler commands](https://developers.cloudflare.com/workers/wrangler/commands/)
+- [Create R2 buckets](https://developers.cloudflare.com/r2/buckets/create-buckets/)
+- [Create D1 database/wrangler commands](https://developers.cloudflare.com/d1/wrangler-commands/)
+
+---
+
+## Wrangler configuration
+The below is the advanced configuration of the `wrangler.jsonc` - this is saved locally under `wrangler-advanced-config.json` in the `app` folder. 
+
+<Accordions>
+  <Accordion title="Full wrangler.jsonc config">
+  ```jsonc title="wrangler.jsonc"
+{
+  // The monorepo hoists wrangler to the root dir; if not using a monorepo, you would omit the "../../"
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "next-cloudflare-turbo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    "port": 8787
+  },
+  "services": [
+    {
+      // Self-reference binding required for Next.js revalidation
+      "binding": "WORKER_SELF_REFERENCE",
+      // Service name must match the worker name (the "name" value at the top of this file)
+      "service": "next-cloudflare-turbo"
+    }
+  ],
+  // Local development bindings (default environment) - even though it says staging, it will be local due to the "--local" in the CLI
+  // These are used when running `wrangler dev` locally
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "next-cloudflare-turbo-staging",
+      "database_id": "23a3ff59-0b37-4c85-8a81-78f87622c03f",
+      "migrations_dir": "../../packages/db/drizzle/migrations"
+    },
+    {
+      "binding": "NEXT_TAG_CACHE_D1",
+      "database_name": "next-cloudflare-turbo-tag-cache-staging",
+      "database_id": "c75c64c8-20b2-4955-947c-5ff4a02e8b7f"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "next-cloudflare-turbo-cache-staging"
+    }
+  ],
+  // Global migrations (inherited by all environments unless overridden); used for caching
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DOQueueHandler"]
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "next-cloudflare-turbo-staging",
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "next-cloudflare-turbo-staging"
+        }
+      ],
+      "d1_databases": [
+        // Application's staging data
+        {
+          "binding": "DB",
+          "database_name": "next-cloudflare-turbo-staging",
+          "database_id": "23a3ff59-0b37-4c85-8a81-78f87622c03f",
+          "migrations_dir": "../../packages/db/drizzle/migrations"
+        },
+        // Staging tag cache
+        {
+          "binding": "NEXT_TAG_CACHE_D1",
+          "database_name": "next-cloudflare-turbo-tag-cache-staging",
+          "database_id": "c75c64c8-20b2-4955-947c-5ff4a02e8b7f"
+        }
+      ],
+      // Staging cache
+      "r2_buckets": [
+        {
+          "binding": "NEXT_INC_CACHE_R2_BUCKET",
+          "bucket_name": "next-cloudflare-turbo-cache-staging"
+        }
+      ],
+      // Durable Object bindings must be specified per environment
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "NEXT_CACHE_DO_QUEUE",
+            "class_name": "DOQueueHandler"
+          }
+        ]
+      }
+    },
+    "production": {
+      "name": "next-cloudflare-turbo",
+      "routes": [
+        {
+          "pattern": "app.cording.dev",
+          "custom_domain": true
+        }
+      ],
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "next-cloudflare-turbo"
+        }
+      ],
+      "d1_databases": [
+        // Application's production data
+        {
+          "binding": "DB",
+          "database_name": "next-cloudflare-turbo",
+          "database_id": "04bb2f8f-076a-4e72-8baf-c4b533ad3ef8",
+          "migrations_dir": "../../packages/db/drizzle/migrations"
+        },
+        // Production tag cache
+        {
+          "binding": "NEXT_TAG_CACHE_D1",
+          "database_name": "next-cloudflare-turbo-tag",
+          "database_id": "e83d8129-1632-4ea7-ae56-684e09b525f3"
+        }
+      ],
+      // Production cache
+      "r2_buckets": [
+        {
+          "binding": "NEXT_INC_CACHE_R2_BUCKET",
+          "bucket_name": "next-cloudflare-turbo-cache"
+        }
+      ],
+      // Durable Object bindings must be specified per environment
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "NEXT_CACHE_DO_QUEUE",
+            "class_name": "DOQueueHandler"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+  </Accordion>
+</Accordions>
+
+The advanced configuration can seem daunting, but it's quite simple and more repetitive than anything else.
+
+The configuration essentially boils down to configuring default top-level settings, and then environment specific overrides.
+
+```json title="wrangler.jsonc"
+{
+  "name": "next-cloudflare-turbo", // [!code highlight] top-level config
+  "services":[],
+  "d1_databases":[],
+  "r2_buckets":[],
+  "migrations": [],
+  "env": { //[!code highlight] environment-level config
+    "staging": {
+      "name": "next-cloudflare-turbo-staging",
+      "d1_databases":[],
+      "r2_buckets":[],
+      "durable_objects": {}
+    },
+    "production": {
+      "name": "next-cloudflare-turbo",
+      "routes": [],
+      "d1_databases":[],
+      "r2_buckets":[],
+      "durable_objects": {}
+    },
+  }
+}
+```
+
+<Callout>For a full breakdown of what each key means in the `wrangler.jsonc` config, see [Configuration | Wrangler](/app/wrangler-configuration)</Callout>
+
+--- 
+
+## Creating databases
+The [manual setup](/next-cloudflare-turbo/manual-setup) will guide you through creating D1 databases. The process is the same for R2. In this instance, you will need to create four D1 databases, and two R2 buckets. The commands would be
+
+D1 databases for application data:
+```npm title="apps/app"
+npx wrangler d1 create your-database-name
+npx wrangler d1 create your-database-name-staging
+```
+
+D1 databases for tags caches:
+```npm title="apps/app"
+npx wrangler d1 create your-database-name-tag
+npx wrangler d1 create your-database-name-tag-staging
+```
+
+R2 buckets for incremental cache:
+```npm title="apps/app"
+npx wrangler r2 bucket create your-bucket-name
+npx wrangler r2 bucket create your-bucket-name-staging
+```
+
+<Callout>Don't forget to run `npm run cf-typegen` to ensure the bindings are accessible when using `getCloudflareContext()`</Callout>
+
+---
+
+## Creating environments
+
+When you create an environment, Cloudflare effectively creates a new Worker with the name `top-level-name-environment-name`. For example, a Worker project named `my-worker` with an environment `staging` would deploy as a Worker named `my-worker-staging`.
+
+Creating environments is as simple as adding the environment to the `env` key in your `wrangler.jsonc`:
+
+```json title="wrangler.jsonc"
+  "env": {
+    "staging": {}
+  }
+```
+
+---
+
+## Working with environments
+
+In the [manual setup](/next-cloudflare-turbo/manual-setup) page, you can see how we use `wrangler` commands to create D1 databases, apply migrations, and seed data. 
+
+To change between environments, you simply pass a `--env` key to the CLI command, followed by the environment name.
+
+For example:
+```npm title="apps/app"
+npx wrangler d1 migrations apply YOUR_DATABASE_NAME_STAGING --env staging --remote
+```
+
+This command would apply migrations to your remote staging database.
+
+<Callout>The `--remote` flag should be used to execute `wrangler` commands against the remote resource (whether that's D1 or R2)</Callout>
+
+---
+
+## Configuring caches 
+
+The advanced wrangler configuration should work out-the-box, however you will also need to modify the `open-next.config.ts` in the `apps/app` folder.
+
+```typescript title="open-next.config.ts"
+import { defineCloudflareConfig } from "@opennextjs/cloudflare"
+import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache"
+import doQueue from "@opennextjs/cloudflare/overrides/queue/do-queue"
+import d1NextTagCache from "@opennextjs/cloudflare/overrides/tag-cache/d1-next-tag-cache"
+
+/**
+ * Cloudflare config implementing caching
+ * See: https://opennext.js.org/cloudflare/caching
+ */
+export default defineCloudflareConfig({
+// Incremental cache using R2
+incrementalCache: r2IncrementalCache,
+queue: doQueue,
+
+// This is used for on-demand revalidation, i.e. revalidatePath/revalidateTag
+tagCache: d1NextTagCache,
+
+// Disable this if you want to use PPR
+// See: https://nextjs.org/docs/app/getting-started/partial-prerendering
+enableCacheInterception: true,
+})
+
+```
+
+---
+
+## Configuring package.json
+
+The `package-advanced.json` contains a modified `package.json` which includes convenience scripts scoped to the relevant local/staging/production environments.
+
+Simply modify the various scripts to include your database names, and it should work out-the-box.
+
+<Accordions>
+  <Accordion title="package-advanced.json">
+    ```json title="package-advanced.json"
+    {
+  "name": "app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:staging": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env staging",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env production",
+    "lint": "npx ultracite lint",
+    "format": "npx ultracite format",
+    "check-types": "tsc --noEmit",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
+    "----- Database Local": "───────────────────────────────────────",
+    "db:migrate:local": "wrangler d1 migrations apply YOUR_DATABASE_NAME_STAGING --local",
+    "db:list:local": "wrangler d1 migrations list YOUR_DATABASE_NAME_STAGING --local",
+    "db:validate:local": "wrangler d1 execute YOUR_DATABASE_NAME_STAGING --local --command=\"SELECT name FROM sqlite_master WHERE type='table';\"",
+    "db:seed:local": "wrangler d1 execute YOUR_DATABASE_NAME_STAGING --local --file=../../packages/db/seed.sql",
+    "----- Database: Staging": "───────────────────────────────────────",
+    "db:migrate:staging": "wrangler d1 migrations apply YOUR_DATABASE_NAME_STAGING --env staging --remote",
+    "db:info:staging": "wrangler d1 info YOUR_DATABASE_NAME_STAGING --env staging",
+    "db:validate:staging": "wrangler d1 execute YOUR_DATABASE_NAME_STAGING --env staging --remote --command=\"SELECT name FROM sqlite_master WHERE type='table';\"",
+    "db:seed:staging": "wrangler d1 execute YOUR_DATABASE_NAME_STAGING --file=../../packages/db/seed.sql --env staging --remote",
+    "----- Database: Production": "───────────────────────────────────────",
+    "db:migrate:prod": "wrangler d1 migrations apply YOUR_DATABASE_NAME_PRODUCTION --env production --remote",
+    "db:info:prod": "wrangler d1 info YOUR_DATABASE_NAME_PRODUCTION --env production",
+    "db:validate:prod": "wrangler d1 execute YOUR_DATABASE_NAME_PRODUCTION --env production --remote --command=\"SELECT name FROM sqlite_master WHERE type='table';\"",
+    "db:seed:production": "wrangler d1 execute YOUR_DATABASE_NAME_PRODUCTION --file=../../packages/db/seed.sql --env production --remote",
+    "----- Database: Utilities": "───────────────────────────────────────",
+    "db:list": "wrangler d1 list"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/modifiers": "^9.0.0",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@nct/db": "*",
+    "@opennextjs/cloudflare": "^1.6.1",
+    "@radix-ui/react-avatar": "^1.1.10",
+    "@radix-ui/react-checkbox": "^1.3.2",
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-toggle": "^1.1.9",
+    "@radix-ui/react-toggle-group": "^1.1.10",
+    "@radix-ui/react-tooltip": "^1.2.7",
+    "@tabler/icons-react": "^3.34.1",
+    "@tanstack/react-table": "^8.21.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.525.0",
+    "next": "15.3.0",
+    "next-themes": "^0.4.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "recharts": "^2.15.4",
+    "sonner": "^2.0.6",
+    "tailwind-merge": "^3.3.1",
+    "vaul": "^1.1.2",
+    "zod": "^4.0.14"
+  },
+  "devDependencies": {
+    "@nct/typescript-config": "*",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "24.0.15",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.1",
+    "tailwindcss": "^4.1.11",
+    "tw-animate-css": "^1.3.6",
+    "typescript": "^5.8.3"
+  }
+}
+
+    ```
+  </Accordion>
+</Accordions>
+
+---
+
+## Deploying to environments
+If you're using the `package-advanced.json`, you can simply use the convenience scripts to deploy to staging or production:
+
+```npm title="apps/app"
+npm run deploy:staging
+npm run deploy
+```
+
+These are wrapping the following commands:
+```npm title="apps/app"
+npx opennextjs-cloudflare build && opennextjs-cloudflare deploy --env staging
+npx opennextjs-cloudflare build && opennextjs-cloudflare deploy --env production
+```
+
+---
+
+## FAQ
+
+<Accordions>
+  <Accordion title="Why is there no Durable Object configuration at the top-level of the wrangler.jsonc?">
+    Durable Objects don't work natively in local development. As a result, there is no point configuring them at the top-level when they cannot be used. The staging and production configurations, however, will work. This is explained in more detail in the OpenNext [Known issues](https://opennext.js.org/cloudflare/known-issues) page.  
+  </Accordion>
+
+  <Accordion title="What if I don't want one of the environments?">
+    If you don't want one of the environments, staging for example, you can simply delete any `staging` related configurations. These would need to be removed from the `wrangler.jsonc` and `package.json` scripts (if you're using the advanced config).
+
+    If you have already created the relevant resources (D1/R2), you can delete any of the resources via the Cloudflare Dashboard, or using `wrangler` commands.  
+  </Accordion>
+
+  <Accordion title="How do I handle environment variables across environments?">
+    Use `wrangler secret` commands with the `--env` flag:
+    ```bash title="apps/app"
+    # Set secrets per environment
+    npx wrangler secret put API_KEY --env staging
+    npx wrangler secret put API_KEY --env production
+    ```
+    For non-sensitive variables, add them to the respective `env` sections in `wrangler.jsonc`.
+  </Accordion>
+
+  <Accordion title="My deployment failed with 'binding not found' errors. What's wrong?">
+    This usually means:
+    1. You haven't created the D1/R2 resources yet
+    2. The resource IDs in `wrangler.jsonc` don't match your actual resources
+    3. You're deploying to the wrong environment
+    
+    Run `wrangler d1 list` and `wrangler r2 bucket list` to verify your resources exist and their names match your configuration.
+  </Accordion>
+
+  <Accordion title="Can I use a different custom domain setup?">
+    Yes. The `routes` configuration in the production environment can be modified:
+    ```json title="wrangler.jsonc"
+    "routes": [
+      { "pattern": "your-domain.com", "custom_domain": true },
+      { "pattern": "www.your-domain.com", "custom_domain": true }
+    ]
+    ```
+    You'll need to configure the domain in your Cloudflare dashboard first.
+  </Accordion>  
+</Accordions>

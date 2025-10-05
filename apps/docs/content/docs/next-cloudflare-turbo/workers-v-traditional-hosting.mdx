@@ -1,0 +1,81 @@
+---
+title: Workers vs. Traditional Hosting
+icon: BadgeQuestionMark
+description: Understanding the trade-offs between Cloudflare Workers and traditional hosting
+---
+
+Cloudflare Workers offers significant benefits, but it's a different deployment model from traditional hosting platforms. Understanding these differences will help you decide whether Workers is the right choice for your project.
+
+---
+
+## The fundamental difference
+
+Traditional platforms like Vercel, Netlify, or Railway run your Next.js application in a Node.js environment. They handle the complexity of servers, scaling, and deployment for you, whilst giving you the full Node.js runtime and ecosystem.
+
+Workers runs your application in the [V8 JavaScript engine](https://v8.dev/) at the edge, without Node.js. This gives you faster cold starts and global distribution, but it means working within different constraints. Not every npm package will work, and some patterns you're used to from Node.js won't translate directly.
+
+The question isn't which is better - it's which constraints you're willing to accept for which benefits.
+
+---
+
+## Where traditional hosting is simpler
+
+If you're new to web development or want the fastest path to deployment, traditional platforms are often the better starting point.
+
+Configuration is minimal. Connect your GitHub repository, and your application deploys automatically. All Next.js features work out of the box without adaptation. When something goes wrong, there's a larger community with more tutorials and Stack Overflow answers to help you debug.
+
+The development experience is more straightforward. You don't need to learn about Workers-specific concepts like bindings, wrangler configuration, or edge runtime constraints. You can use any npm package without checking compatibility. Your local development environment matches production exactly.
+
+Error messages and debugging tools are more mature. Stack traces are clearer, and the debugging tools you're used to from Node.js development work as expected.
+
+Expect to have a Next.js application deployed to Vercel in under 30 minutes. With Workers, expect to spend a day getting comfortable with the basics - learning Wrangler, understanding bindings, and adapting to the runtime differences.
+
+---
+
+## Workers-specific challenges
+
+**Package compatibility** is the most common pain point. Not all npm packages work in the Workers runtime. Packages that use Node.js file system APIs, database drivers not built for edge environments, or authentication libraries that depend on Node.js-specific features may not work at all.
+
+Before choosing a package, check whether it mentions Workers or edge compatibility. Better yet, deploy to a staging environment early to test compatibility before committing to dependencies. The Cloudflare documentation maintains a [list of supported Node.js APIs](https://developers.cloudflare.com/workers/runtime-apis/nodejs/#supported-nodejs-apis), but compatibility ultimately depends on what each package actually uses.
+
+**Bundle size limits** are stricter than traditional hosting. The free tier limits your entire application to 3MB after compression. The paid tier (approximately £5/month) extends this to 10MB.
+
+Large libraries like date manipulation tools, rich text editors, or comprehensive UI component libraries might push you over the limit. You'll need to be more selective about dependencies and consider alternatives. 
+
+<Callout>VS Code extensions like [Import Cost](https://marketplace.visualstudio.com/items?itemName=wix.vscode-import-cost) can help tremendously with finding particularly large packages quickly, while you develop.</Callout>
+
+**Debugging** requires adapting to different tools and workflows. Error messages can be less detailed than you're used to from Node.js. Some debugging tools won't work in the Workers environment. You'll spend more time reading documentation and experimenting to understand what's happening when things go wrong.
+
+**Configuration complexity** increases. Instead of a single deployment button, you'll manage Wrangler configuration files, understand bindings for resources like D1 and R2, and handle environment variables differently. This isn't necessarily difficult, but it's more to learn and maintain.
+
+---
+
+## Where Workers excels
+
+Workers makes sense when you need what it uniquely offers.
+
+**Global performance** is Workers' primary strength. Your application runs in Cloudflare's global data centres, serving requests from locations close to your users. If you have a global audience, this can dramatically reduce latency compared to a single-region deployment.
+
+**Cost efficiency** at scale is significant. Workers' pricing model charges per request rather than per server hour. For applications with variable traffic, this can be substantially cheaper than paying for always-on servers. The free tier is generous enough for small applications to run indefinitely without cost.
+
+**Integrated Cloudflare services** work seamlessly with Workers. D1 databases, R2 storage, KV stores, and Durable Objects are accessed through bindings without additional configuration. If your application benefits from edge databases and storage, Workers provides this integration out of the box.
+
+**Cold start performance** is genuinely better. Workers start in milliseconds, not seconds. If your application needs to handle sudden traffic spikes or has sporadic usage patterns, this responsiveness matters.
+
+---
+
+## Making the decision
+
+Choose traditional hosting if you want simplicity, are new to web development, or need the full Node.js ecosystem without constraints. The faster time to production and easier debugging make it the pragmatic choice for many projects.
+
+Choose Workers if global performance matters, you need to minimise hosting costs long-term, or your application benefits from edge databases and storage. The trade-off is accepting more complexity in exchange for better control over where and how your application runs.
+
+There's no wrong choice - just different priorities. Many successful applications run on Vercel. Many others run on Workers. The platform matters less than understanding its constraints and building accordingly.
+
+---
+
+## Next steps
+
+If you've decided Workers is right for your project, continue to [Getting Started](/next-cloudflare-turbo/getting-started) to set up your development environment.
+
+For a deeper understanding of how everything works together, see [Architecture](/next-cloudflare-turbo/architecture).

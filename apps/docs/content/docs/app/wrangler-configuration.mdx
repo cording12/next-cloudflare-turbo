@@ -1,0 +1,383 @@
+---
+title: Wrangler
+description: Understanding the wrangler.jsonc configuration
+---
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+The `wrangler.jsonc` file is the configuration for Wrangler should be treated as the single source of truth for configuring your Worker. 
+
+Cloudflare recommend only making configuration changes in your `wrangler.jsonc` instead of using the Cloudflare dashboard. If you change environment variables or routes in the Cloudflare dashboard, Wrangler will automatically override them on your next deplyment unless configured otherwise using flags like `--keep-vars`. This is explained in greater detail in the [environment variables](/app/environment-variables) section.
+
+<Callout>
+    As of Wrangler v3.91.0 Wrangler supports both JSON (`wrangler.json` or `wrangler.jsonc`) and TOML (`wrangler.toml`) for its configuration file. Prior to that version, only `wrangler.toml` was supported.
+
+    Cloudflare recommends using `wrangler.jsonc` for new projects, and some newer Wrangler features will only be available to projects using a JSON config file. For more information, see [Wrangler Configuration](https://developers.cloudflare.com/workers/wrangler/configuration)
+</Callout>
+
+---
+
+## Working with keys
+
+Workers have the concept of [top-level only keys](https://developers.cloudflare.com/workers/wrangler/configuration/#top-level-only-keys), [inheritable keys](https://developers.cloudflare.com/workers/wrangler/configuration/#inheritable-keys), and [non-inheritable keys](https://developers.cloudflare.com/workers/wrangler/configuration/#non-inheritable-keys).
+
+It is recommended you get familiar with keys as you develop your `wrangler.jsonc` configuration. This becomes especially necessary as you move towards the advanced configuration.
+
+---
+
+## Basic wrangler.jsonc
+```json title="wrangler.jsonc"
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */ {
+  // The monorepo hoists wrangler to the root dir; if not using a monorepo, you would omit the "../../"
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "next-cloudflare-turbo",
+  "main": ".open-next/worker.js",
+  // https://opennext.js.org/cloudflare/howtos/keep_names
+  "keep_names": false,
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    "port": 8787
+  },
+  // Delete the routes key - this is a custom domain for next-cloudflare-turbo only, left here as an example
+  "routes": [
+    {
+      "pattern": "app.cording.dev",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "next-cloudflare-turbo",
+      "database_id": "04bb2f8f-076a-4e72-8baf-c4b533ad3ef8",
+      "migrations_dir": "../../packages/db/drizzle/migrations"
+    }
+  ]
+}
+```
+
+### Required configuration
+The below are required for all `wrangler.jsonc` configurations
+
+#### name
+```json
+"name": "next-cloudflare-turbo",
+```
+
+The name of your Worker. This is how it will appear in your Cloudflare Dashboard - it has no bearing on your application (i.e. end-users won't see it).
+
+#### main
+```json
+"main": ".open-next/worker.js",
+```
+The path to the entrypoint of your Worker that will be executed. This should remain unchanged unless your are building [custom Workers](https://opennext.js.org/cloudflare/howtos/custom-worker).
+
+#### compatibility_date
+```json
+"compatibility_date": "2025-03-01",
+"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+```
+A date in the form yyyy-mm-dd, which will be used to determine which version of the Workers runtime is used. Refer to [Compatibility dates](https://developers.cloudflare.com/workers/configuration/compatibility-dates/).
+
+#### compatibility_flags
+```json
+"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+```
+"compatibility_date": "2025-03-01",
+A list of flags that enable features from upcoming features of the Workers runtime, usually used together with compatibility_date. Refer to [Compatibility dates](https://developers.cloudflare.com/workers/configuration/compatibility-dates/).
+
+#### assets
+```json
+"assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+},
+```
+OpenNext will create a `.open-next/assets` folder containing the hashed and un-hashed files. Files in `.open-next/assets` should be served from the root of your website. For example, the file `.open-next/assets/favicon.ico` should be served from `/favicon.ico`.
+
+#### d1_databases
+```json
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "next-cloudflare-turbo",
+      "database_id": "04bb2f8f-076a-4e72-8baf-c4b533ad3ef8",
+      "migrations_dir": "../../packages/db/drizzle/migrations"
+    }
+  ]
+```
+The configuration for the D1 database:
+- `binding`: The name we'll refer to the database as in code. See [accessing environment bindings](/app/database-patterns#accessing-environment-bindings) for more information.
+- `database_name`: The name you configured for the database when creating it
+- `database_id`: The database ID, given when creating the database. Can also be found on the Cloudflare Dashboard.
+- `migrations_dir`: The directory where your database migrations are - the `@nct/db` package.
+
+### Optional configuration
+The below are optional configurations for `wrangler.jsonc` files
+
+#### keep_names
+```json
+"keep_names": false,
+```
+Can be helpful when debugging certain libraries (e.g. next-themes) that convert scripts to strings. If not specified, defaults to `true`. 
+
+This is done to fix errors in the console that reads:
+```
+Uncaught ReferenceError: __name is not defined
+```
+For more information, see [___name issues](https://opennext.js.org/cloudflare/howtos/keep_names).
+
+#### observability
+```json
+"observability": {
+    "enabled": true
+},
+```
+Allows you to automatically ingest, store, filter, and analyse logging data emitted from Cloudflare Workers. For more information, see [Observability](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/.)
+
+#### dev
+```json
+"dev": {
+    "port": 8787
+},
+```
+[Local development setting](https://developers.cloudflare.com/workers/wrangler/configuration/#local-development-settings) to force using port 8787 when running `wrangler dev`. Useful if you are running `wrangler dev` on more than one Worker at the same time to prevent them from trying to use the same port.
+
+#### routes
+```json
+  "routes": [
+    {
+      "pattern": "app.cording.dev",
+      "custom_domain": true
+    }
+  ],
+```
+Allows the use of [Custom Domains](https://developers.cloudflare.com/workers/wrangler/configuration/#types-of-routes) for your Worker. You will need to delete this when publishing your own Worker (or use your own domain).
+
+---
+
+## Advanced configuration
+The advanced configuration of the `wrangler.jsonc` is what you will likely end up with over time, in particular the configurations for caching. 
+
+This advanced configuration further includes [environment](https://developers.cloudflare.com/workers/wrangler/configuration/#environments) based configurations, creating separate `staging` and `production` environments. For more information, refer to the [advanced setup](next-cloudflare-turbo/advanced-setup) instructions. 
+
+<Callout>See [Caching](https://opennext.js.org/cloudflare/caching) for detailed instructions on setting up caching in your application.</Callout>
+
+<Accordions>
+  <Accordion title="Full wrangler.jsonc config">
+  ```jsonc title="wrangler.jsonc"
+{
+  // The monorepo hoists wrangler to the root dir; if not using a monorepo, you would omit the "../../"
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "next-cloudflare-turbo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    "port": 8787
+  },
+  "services": [
+    {
+      // Self-reference binding required for Next.js revalidation
+      "binding": "WORKER_SELF_REFERENCE",
+      // Service name must match the worker name (the "name" value at the top of this file)
+      "service": "next-cloudflare-turbo"
+    }
+  ],
+  // Local development bindings (default environment) - even though it says staging, it will be local due to the "--local" in the CLI
+  // These are used when running `wrangler dev` locally
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "next-cloudflare-turbo-staging",
+      "database_id": "23a3ff59-0b37-4c85-8a81-78f87622c03f",
+      "migrations_dir": "../../packages/db/drizzle/migrations"
+    },
+    {
+      "binding": "NEXT_TAG_CACHE_D1",
+      "database_name": "next-cloudflare-turbo-tag-cache-staging",
+      "database_id": "c75c64c8-20b2-4955-947c-5ff4a02e8b7f"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "next-cloudflare-turbo-cache-staging"
+    }
+  ],
+  // Global migrations (inherited by all environments unless overridden); used for caching
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DOQueueHandler"]
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "next-cloudflare-turbo-staging",
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "next-cloudflare-turbo-staging"
+        }
+      ],
+      "d1_databases": [
+        // Application's staging data
+        {
+          "binding": "DB",
+          "database_name": "next-cloudflare-turbo-staging",
+          "database_id": "23a3ff59-0b37-4c85-8a81-78f87622c03f",
+          "migrations_dir": "../../packages/db/drizzle/migrations"
+        },
+        // Staging tag cache
+        {
+          "binding": "NEXT_TAG_CACHE_D1",
+          "database_name": "next-cloudflare-turbo-tag-cache-staging",
+          "database_id": "c75c64c8-20b2-4955-947c-5ff4a02e8b7f"
+        }
+      ],
+      // Staging cache
+      "r2_buckets": [
+        {
+          "binding": "NEXT_INC_CACHE_R2_BUCKET",
+          "bucket_name": "next-cloudflare-turbo-cache-staging"
+        }
+      ],
+      // Durable Object bindings must be specified per environment
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "NEXT_CACHE_DO_QUEUE",
+            "class_name": "DOQueueHandler"
+          }
+        ]
+      }
+    },
+    "production": {
+      "name": "next-cloudflare-turbo",
+      "routes": [
+        {
+          "pattern": "app.cording.dev",
+          "custom_domain": true
+        }
+      ],
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "next-cloudflare-turbo"
+        }
+      ],
+      "d1_databases": [
+        // Application's production data
+        {
+          "binding": "DB",
+          "database_name": "next-cloudflare-turbo",
+          "database_id": "04bb2f8f-076a-4e72-8baf-c4b533ad3ef8",
+          "migrations_dir": "../../packages/db/drizzle/migrations"
+        },
+        // Production tag cache
+        {
+          "binding": "NEXT_TAG_CACHE_D1",
+          "database_name": "next-cloudflare-turbo-tag",
+          "database_id": "e83d8129-1632-4ea7-ae56-684e09b525f3"
+        }
+      ],
+      // Production cache
+      "r2_buckets": [
+        {
+          "binding": "NEXT_INC_CACHE_R2_BUCKET",
+          "bucket_name": "next-cloudflare-turbo-cache"
+        }
+      ],
+      // Durable Object bindings must be specified per environment
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "NEXT_CACHE_DO_QUEUE",
+            "class_name": "DOQueueHandler"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+  </Accordion>
+</Accordions>
+
+### Inherited keys
+The keys specified at the top-level of the `wrangler.jsonc` configuration, i.e. not environment specific, can mostly be [inherited](https://developers.cloudflare.com/workers/wrangler/configuration/#inheritable-keys) by the separatley configured environments. 
+
+Because of this inheritance, some keys are also redefined within each environment configuration. 
+
+#### services
+```json
+  "services": [
+    {
+      // Self-reference binding required for Next.js revalidation
+      "binding": "WORKER_SELF_REFERENCE",
+      // Service name must match the worker name (the "name" value at the top of this file)
+      "service": "next-cloudflare-turbo"
+    }
+  ]
+```
+The services configuration creates a self-reference binding that Next.js uses for revalidation. The service name must match the worker name for each environment.
+
+#### r2_buckets
+```json
+"r2_buckets": [
+  {
+    "binding": "NEXT_INC_CACHE_R2_BUCKET",
+    "bucket_name": "next-cloudflare-turbo-cache-staging"
+  }
+],
+```
+Similar to D1 databases, but for storing Next.js incremental cache data. Each environment has its own R2 bucket for cache isolation.
+
+#### migrations 
+```json
+"migrations": [
+  {
+    "tag": "v1",
+    "new_sqlite_classes": ["DOQueueHandler"]
+  }
+],
+```
+Global configuration for Durable Objects. The DOQueueHandler class is used for managing cache invalidation queues across all environments.
+
+#### env
+```json
+  "env": { // environment-level config
+    "staging": {
+      "name": "next-cloudflare-turbo-staging",
+      "d1_databases":[],
+      "r2_buckets":[],
+      "durable_objects": {}
+    },
+    "production": {
+      "name": "next-cloudflare-turbo",
+      "routes": [],
+      "d1_databases":[],
+      "r2_buckets":[],
+      "durable_objects": {}
+    },
+  }
+```
+Where we override the top-level configurations with environment specific configurations. Within this, you would specify your different resources via their respective bindings, e.g. d1-staging and d1-production.

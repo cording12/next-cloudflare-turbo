@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+.next-cloudflare-turbo {
+  --color-fd-primary: var(--next-cloudflare-turbo-color);
+}
+
+.app {
+  --color-fd-primary: var(--app-color);
+}
+
+.cloudflare {
+  --color-fd-primary: var(--cloudflare-color);
+}
+
+.turbo {
+  --color-fd-primary: var(--turbo-color);
+}
+
+:root {
+  --app-color: rgb(32, 170, 175);
+  --cloudflare-color: rgb(246, 102, 31);
+  --next-cloudflare-turbo-color: hsl(250, 80%, 54%);
+  --turbo-color: hsl(212, 100%, 48%);
+}
+
+.dark {
+  --app-color: rgb(97, 199, 202);
+  --cloudflare-color: rgb(255, 102, 51);
+  --next-cloudflare-turbo-color: hsl(250, 100%, 80%);
+  --turbo-color: hsl(206, 100%, 50%);
+}

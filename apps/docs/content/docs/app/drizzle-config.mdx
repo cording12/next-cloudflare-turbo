@@ -1,0 +1,84 @@
+---
+title: Drizzle Config
+description: Configuring Drizzle to work with OpenNext locally and on Cloudflare
+---
+## Drizzle Config
+The `drizzle.config.ts` is straightforward, and will look different from what you see in the documentation. 
+
+```tsx title="drizzle.config.ts"
+import { defineConfig } from "drizzle-kit"
+
+export default defineConfig({
+    dialect: "sqlite",
+    schema: "./src/schema",
+    out: "./drizzle/migrations",
+    driver: "d1-http",
+})
+```
+
+The [Drizzle | Cloudflare D1](https://orm.drizzle.team/docs/guides/d1-http-with-drizzle-kit) documentation specifies the need for passing database credentials (Cloudflare Account ID, Database ID, and D1 token). This is actually not necessary for Next-Cloudflare-Turbo, as Drizzle is not used to directly interact with our remote database in this project. If you wish to do that, Cloudflare have native tools in their dashboard, as well as provide `wrangler` commands to do so.  
+
+If you **do** wish to pass credentials the config can be updated to the following:
+
+```tsx title="drizzle.config.ts"
+import * as dotenv from "dotenv"
+import { defineConfig } from "drizzle-kit"
+
+dotenv.config()
+
+export default defineConfig({
+  dialect: "sqlite",
+  schema: "./src/schema",
+  out: "./drizzle/migrations",
+  driver: "d1-http",
+  dbCredentials: {
+    accountId: getEnvVar("CLOUDFLARE_ACCOUNT_ID"),
+    databaseId: getEnvVar("CLOUDFLARE_DATABASE_ID"),
+    token: getEnvVar("CLOUDFLARE_D1_TOKEN"),
+  },
+})
+
+function getEnvVar(name: string): string {
+  const value = process.env[name]
+
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}`)
+  }
+
+  return value
+}
+```
+
+<Callout>Ensure you include a `.env` file with the environment variables required. Refer to the [Drizzle | Cloudflare D1](https://orm.drizzle.team/docs/guides/d1-http-with-drizzle-kit) documentation for more information and where to find the values for these variables.</Callout>
+
+---
+
+## Using Drizzle Studio locally
+[Drizzle Studio](https://orm.drizzle.team/drizzle-studio/overview) is a useful tool for connecting to your database and performing CRUD operations. Typically, this needs no extra configuration once you have setup Drizzle, however in Next-Cloudflare-Turbo, as we're working with Cloudflare D1 locally, there is some small setup required.
+
+By default, Drizzle Studio would load the remote instance of D1 rather than the local version. 
+
+Under-the-hood, [Miniflare](https://developers.cloudflare.com/workers/testing/miniflare/) is used to simulate Cloudflare Worker environments for local development. As a result, a copy of the D1 database is stored on the local file system. This is located in `./wrangler/state/v3/d1/miniflare-D1DatabaseObject` as a `.sqlite` file. 
+
+The `drizzle.studio.config.ts` file contains the configuration for using the local instance of D1. 
+
+While the file contains a more advanced setup to automatically find the local `.sqlite` file, the core code boils down to:
+
+```tsx title="drizzle.studio.config.ts"
+export default {
+  schema: "./src/index.ts",
+  out: "./drizzle",
+  dialect: "sqlite",
+  dbCredentials: {
+    // You can hardcode the value, but this will change 
+    url: "file:C:/project-root-filepath/apps/app/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/DATABASE_ID.sqlite
+  },
+} satisfies Config
+
+```
+
+Drizzle Studio can be launched using this configuration using the command `npm run drizzle:studio`, which is a convenience script wrapping:
+
+```npm title="packages/db"
+npx drizzle-kit studio --config=drizzle.studio.config.ts
+```

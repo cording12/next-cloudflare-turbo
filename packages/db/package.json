@@ -1,0 +1,31 @@
+{
+  "name": "@nct/db",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "dist/**"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "npx ultracite lint",
+    "format": "npx ultracite format",
+    "check-types": "tsc --noEmit",
+    "db:generate": "npx drizzle-kit generate",
+    "db:studio": "npx drizzle-kit studio --config=drizzle.studio.config.ts"
+  },
+  "devDependencies": {
+    "@nct/typescript-config": "*",
+    "better-sqlite3": "^12.2.0",
+    "drizzle-kit": "^0.31.4",
+    "tsup": "^8.5.0"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20250723.0",
+    "dotenv": "^17.2.0",
+    "drizzle-orm": "^0.44.3"
+  }
+}

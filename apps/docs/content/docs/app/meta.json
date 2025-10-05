@@ -1,0 +1,22 @@
+{
+  "title": "App",
+  "description": "The application",
+  "icon": "AppWindow",
+  "root": true,
+  "pages": [
+    "---Introduction---",
+    "index",
+    "architecture",
+    "key-concepts",
+    "---Development---",
+    "development",
+    "environment-variables",
+    "---Configuration---",
+    "next-config",
+    "wrangler-configuration",
+    "---Data Layer---",
+    "database-patterns",
+    "working-with-your-database",
+    "drizzle-config"
+  ]
+}

@@ -1,0 +1,85 @@
+---
+title: Account Settings
+description: Managing API tokens, billing, and account-level configuration
+---
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+## Overview
+
+Account settings apply across your entire Cloudflare account rather than individual Workers or databases. This section covers the essential account-level configurations you'll need for managing your Next-Cloudflare-Turbo project.
+
+Most day-to-day work happens at the Worker or resource level, but understanding account settings is important for API token management, billing, and team collaboration.
+
+---
+
+## Accessing account settings
+
+Access your [profile page](https://dash.cloudflare.com/profile/managed-profile/preferences) by clicking your profile icon in the top-right corner of the Cloudflare dashboard, then select **Profile**.
+
+<Wrapper>![Account Settings Menu](https://assets.cording.dev/cloudflare-account-settings.png)</Wrapper>
+
+---
+
+## API tokens
+API tokens allow programmatic access to Cloudflare services. These are essential if you are configuring CI/CD pipelines. There are two types of tokens available in Cloudflare:
+
+- [User tokens](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#api-token). Directly scoped to a specific user.
+  - **Example 1:** A developer using `wrangler login` for local development gets a user token tied to their account
+  - **Example 2:** Individual developer tokens for personal projects or testing environments
+
+- [Account tokens](https://developers.cloudflare.com/fundamentals/api/get-started/account-owned-tokens/). Scoped to specific services. Useful for preventing service interruptions if an employee leaves an organisation.
+  - **Example 1:** CI/CD pipeline token for automated production deployments that persists even when team members change
+  - **Example 2:** Service account tokens for third-party integrations or monitoring tools that need ongoing access
+
+<Callout>See [Create API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) for more detailed information.</Callout>
+
+### Token permissions
+
+Tokens can have different permission levels:
+
+**Account-level permissions:**
+- Workers (read/edit)
+- D1 (read/edit)
+- R2 (read/edit)
+- Account Analytics (read)
+
+**Zone-level permissions:**
+- DNS (read/edit)
+- Workers Routes (read/edit)
+
+<Callout type="info">
+Use the principle of least privilege - grant only the permissions necessary for the token's intended purpose.
+</Callout>
+
+---
+
+## FAQ
+
+<Accordions>
+  <Accordion title="Do I need an API token for Wrangler?">
+    Yes, Wrangler requires authentication. When you run `npx wrangler login`, it creates and stores a token automatically. You can also manually create a token and use it with `CLOUDFLARE_API_TOKEN` environment variable.
+  </Accordion>
+
+  <Accordion title="How do I check if I'm near my usage limits?">
+    Navigate to **Billing** to see current usage across all services. Cloudflare will email you if you approach limits on the free tier.
+  </Accordion>
+
+  <Accordion title="Can I have multiple Cloudflare accounts?">
+    Yes, you can have multiple accounts. Use the account selector in the top-left of the dashboard to switch between them. Each account has separate billing and usage limits.
+  </Accordion>
+
+  <Accordion title="What happens if I exceed free tier limits?">
+    For daily limits (like Workers requests), you'll need to wait until the next day or upgrade to a paid plan. For storage limits (like D1), you'll need to delete data or upgrade.
+  </Accordion>
+
+  <Accordion title="Can I transfer a Worker to a different account?">
+    Not directly. You'll need to redeploy the Worker to the new account using Wrangler. Databases and R2 data must be migrated separately.
+  </Accordion>
+
+  <Accordion title="What's the difference between account and zone settings?">
+    - **Account settings** apply to Workers, D1, R2, and global resources
+    - **Zone settings** apply to specific domains/websites (DNS, CDN, etc.)
+    
+    For Next-Cloudflare-Turbo, you'll primarily use account settings.
+  </Accordion>
+</Accordions>

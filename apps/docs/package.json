@@ -1,0 +1,45 @@
+{
+  "name": "docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbo --port 3002",
+    "build": "next build",
+    "build:analyse": "cross-env ANALYZE=true next build",
+    "build:dry-run": "opennextjs-cloudflare build && wrangler deploy --dry-run",
+    "start": "next start",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "lint": "npx ultracite lint",
+    "format": "npx ultracite format",
+    "postinstall": "fumadocs-mdx",
+    "check-types": "tsc --noEmit",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
+  },
+  "dependencies": {
+    "@opennextjs/cloudflare": "^1.6.1",
+    "clsx": "^2.1.1",
+    "fumadocs-core": "15.6.5",
+    "fumadocs-mdx": "11.7.0",
+    "fumadocs-ui": "15.6.5",
+    "lucide-react": "^0.525.0",
+    "next": "15.3.0",
+    "octokit": "^5.0.3",
+    "posthog-js": "^1.260.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "@next/bundle-analyzer": "^15.4.6",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^24.3.0",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.1",
+    "cross-env": "^10.0.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,132 @@
+---
+title: Architecture
+description: Breaking down the repo's architecture
+icon: Layers
+---
+import { File, Folder, Files } from 'fumadocs-ui/components/files';
+
+## Monorepo Structure
+<Wrapper>
+    <Files>
+        <Folder name="apps" defaultOpen>
+            <Folder name="app --> The main frontend application" defaultOpen>
+                <File name="package.json" />
+            </Folder>
+            <Folder name="docs --> This docs site" defaultOpen>
+                <File name="package.json" />
+            </Folder>        
+        </Folder>
+        <Folder name="packages" defaultOpen>
+            <Folder name="db --> Drizzle config" defaultOpen>
+                    <Folder name="src">
+                        <Folder name="schema">            
+                        </Folder>
+                        <Folder name="types">            
+                        </Folder>
+                    </Folder>
+                    <File name="package.json" />            
+            </Folder>
+        </Folder>
+        <File name="package.json"/>
+        <File name="turbo.json"/>
+    </Files>
+</Wrapper>
+
+---
+
+## Understanding the monorepo
+Next-Cloudflare-Turbo uses Turborepo to manage multiple applications and shared packages in a single repository. This structure lets you run development servers, builds, and tests across all applications from a single command at the project root.
+
+The real power comes from Turborepo's caching and dependency management. When you haven't changed a package, Turborepo won't rebuild it unnecessarily. Shared dependencies are hoisted to the root, reducing duplication whilst still allowing per-app customisation where needed.
+
+---
+
+## Apps vs Packages
+The `/apps` directory contains deployable applications - things that actually run and serve users. Right now that's the main Next.js frontend application and this documentation site, both deployed to Cloudflare Workers using Cloudflare's Next.js adapter.
+
+The `/packages` directory contains shared code libraries that apps consume. The `@nct/db` package provides Drizzle ORM configuration, database schemas, and TypeScript types that both applications can import. This separation is intentional - apps can depend on packages, but packages never depend on apps.
+
+If you wanted to add a new application tomorrow, it could immediately use the existing database layer without any additional configuration. This is the core benefit of the monorepo structure - shared infrastructure that scales as you add applications.
+
+<Callout>The build order is defined in turbo.json. When you run `turbo run dev` from the project root, Turborepo automatically builds `@nct/db` before starting the applications that depend on it.</Callout>
+
+---
+
+## Running on Cloudflare Workers
+Your Next.js applications run at the edge in Cloudflare's global data centres, closer to your users regardless of their location.
+
+The key difference from traditional hosting is that Workers use the [V8 JavaScript engine](https://v8.dev/) directly, not Node.js. This means faster cold starts (milliseconds instead of seconds), but it also means you don't have access to Node.js-specific APIs like `fs`, `path`, or `os`. Instead, you work with Web APIs that are becoming standard across JavaScript runtimes.
+
+Each request runs in isolation. There are no persistent connections or background processes between requests. State must be stored externally in services like Durable Objects, KV, or D1, rather than in-memory variables that persist between requests.
+
+<Callout>Workers have resource constraints - there's a 3MB size limit for your script size on the free tier. Bundle size matters more than it would in traditional deployments.</Callout>
+
+---
+
+## Working with D1 and Drizzle
+D1 is Cloudflare's serverless SQLite database. It's configured through the `@nct/db` package and accessed via bindings in `wrangler.jsonc` rather than traditional connection strings.
+
+The main difference from traditional database setups is that there's no connection pooling to manage. D1 handles scaling automatically, and each request gets a fresh connection through the binding. This is why the database patterns in this template look different from typical Next.js applications - you create a new Drizzle client per request rather than reusing a global instance.
+
+Some Drizzle features work differently with D1's SQLite foundation. Database introspection behaves differently than it would with PostgreSQL or MySQL, and migrations run through Cloudflare's CLI tools rather than application startup scripts.
+
+<Callout>For detailed information about database patterns and how to work with D1, see [Database patterns](/app/database-patterns) and [Working with your database](/app/working-with-your-database).</Callout>
+
+---
+
+## Environment variables and bindings
+
+Configuration works differently in Workers. Traditional Node.js applications use `process.env` for everything, but Workers distinguish between two types of configuration:
+
+- **Environment variables** are strings accessed via `process.env` - things like API keys, feature flags, and configuration strings. These work the same as you'd expect in Next.js.
+- **Bindings** are references to Cloudflare resources like D1 databases, R2 buckets, KV stores, or Durable Objects. These aren't strings - they're live connections to Cloudflare services. You access bindings through the env object provided by `getCloudflareContext()`.
+
+```tsx
+// Environment variable (string)
+const apiKey = process.env.API_KEY
+
+// Binding (Cloudflare resource)
+const { env } = getCloudflareContext()
+const db = env.DB  // D1 database binding
+```
+This distinction matters because the way you configure each is different. Environment variables are set through Wrangler secrets or the Cloudflare dashboard, whilst bindings are defined in `wrangler.jsonc`.
+
+<Callout>For a complete guide to environment variables and bindings, see [Environment Variables](/app/environment-variables).</Callout>
+
+---
+
+## R2 Object Storage
+
+R2 is Cloudflare's S3-compatible object storage service. It's designed for files, images, and static assets, with no egress fees when accessed from Workers. This makes it particularly cost-effective compared to traditional object storage services where bandwidth costs can add up quickly.
+
+R2 integrates natively with Workers through bindings, just like D1. You define the binding in `wrangler.jsonc` and access it through the Cloudflare context. The API follows the S3 standard, so if you've worked with S3, R2 will feel familiar.
+
+---
+
+## Durable Objects
+
+Durable Objects provide stateful serverless computing when you need coordination or real-time functionality. Each Durable Object instance maintains state between requests and provides strong consistency guarantees.
+
+They're particularly useful for WebSocket connections, chat rooms, or collaborative editing where you need to coordinate state across multiple clients. Unlike Workers that are stateless, Durable Objects can hold data in memory and persist it to storage.
+
+You can use Durable Objects alongside the database package through Drizzle ORM, allowing complex stateful operations with full type safety. The key is understanding when you need this coordination - most applications won't need Durable Objects, but when you do need them, they're the right tool for the job.
+
+<Callout type="info">Durable Objects are an advanced feature. Most applications can be built entirely with Workers and D1 without needing them.</Callout>
+
+---
+
+## What's different about Next.js on Workers
+
+Running Next.js on Workers requires some adaptations from traditional deployments:
+
+- **No Node.js APIs**: You can't use Node.js-specific modules like `fs`, `path`, or `os`. The Workers runtime provides Web APIs instead. This affects library choices - any dependency that relies on Node.js internals won't work.
+
+- **Bundle size matters**: Workers have stricter size limits than traditional servers. The free tier has a 1MB script size limit, and the paid tier extends to 10MB. This means being more conscious about dependencies and bundle size than you might be in traditional deployments.
+
+- **Fetch is native**: The global `fetch` API is built into Workers and optimised for the edge runtime. You don't need `node-fetch` or similar polyfills. Request/Response objects follow Web API standards rather than Node.js stream patterns.
+
+- **Connection pooling is unnecessary**: Traditional database setups require managing connection pools carefully. With D1, this complexity disappears - Cloudflare handles it for you. You just create a fresh client per request through the binding.
+
+- **Execution constraints**: Workers have time and memory limits per request. CPU-intensive operations may hit execution time limits. This is the trade-off for instant cold starts - each request must complete quickly.
+
+The good news is that these constraints make your application more portable. The patterns you learn here - using Web APIs, managing bundle size, handling stateless requests - are becoming standard across modern JavaScript runtimes.

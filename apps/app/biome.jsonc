@@ -1,0 +1,22 @@
+{
+  "root": false,
+  "extends": "//",
+  "files": {
+    "includes": ["**", "!*.d.ts"]
+  },
+  "linter": {
+    "rules": {
+      "performance": {
+        // ShadCN components often do namespace imports - easier to just turn it off
+        "noNamespaceImport": "off"
+      },
+      "a11y": {
+        "useValidAnchor": "off",
+        "useFocusableInteractive": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "off"
+      }
+    }
+  }
+}

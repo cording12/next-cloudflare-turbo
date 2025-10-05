@@ -1,0 +1,176 @@
+---
+title: Getting started
+description: Installation and setup with Next-Cloudflare-Turbo
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+## Prerequisites
+- [Node v22.17.0 (LTS)](https://nodejs.org/en/blog/release/v22.17.0). Earlier version may still work
+- [Free Cloudflare account](https://dash.cloudflare.com/)
+
+---
+
+## Quick start
+Get up and running with Next-Cloudflare-Turbo locally.
+
+### Installation & Local Setup
+<Steps>
+    <Step>
+        **Clone and install**
+        
+        ```bash
+        git clone https://github.com/cording12/next-cloudflare-turbo.git
+        ```
+
+        From the project directory, run:
+        ```npm
+        npm install
+        ```
+        
+    </Step>
+    <Step>
+        **Authenticate with Cloudflare**
+        ```npm
+        npx wrangler login
+        ```
+        This opens your browser to authorise Wrangler with your Cloudflare account. 
+        
+        <Callout type="warning">If you already had a Cloudflare Account before starting, ensure the account you use has all the correct API permissions (read/write for D1, R2, KV, Durable Objects etc.). New accounts should work out-the-box and require nothing further.</Callout>
+    </Step>
+    <Step>
+        **Validation (optional)**
+
+        Run `npx wrangler whoami` to confirm authentication worked.
+        ```npm
+        npx wrangler whoami
+        ```
+    </Step>
+        <Step>
+        **Run database setup script**
+        ```npm
+        npm run setup:db
+        ```
+
+        This creates the D1 database, runs migrations, and adds seed data.
+
+        <Callout>If you have any issues running this script, see [Manual setup](/next-cloudflare-turbo/manual-setup)</Callout>
+    </Step>
+</Steps>
+
+### Running the project locally
+The following commands should be run from the project root to fully leverage the power of the Turbo monorepo. 
+
+The `turbo.json` at the project root contains the configuration for the monorepo. This means that all dependencies of a task are automatically run (and cached where configured).
+
+<Steps>
+    <Step>
+        **Run locally**
+        ```npm 
+        turbo run dev
+        ```
+    </Step>
+    <Step>
+        **Run in `preview`**
+
+        The final step is to test the Next.js application works in the context of a Cloudflare Worker. 
+        
+        ```npm
+        npm run preview
+        ```
+
+        If you only want to preview one application (instead of both), you can alternatively run `npm run preview:app` or `npm run preview:docs`
+    </Step>
+</Steps>
+
+---
+
+## Deployment
+After you have finished the initial setup, and tested it works using `npm run preview`, you need to apply migrations and seed the remote database before deploying to Cloudflare.
+
+<Callout>This is done for you locally when you use the `npm run setup:db` script. For a more detailed understanding, see [Manual setup](/next-cloudflare-turbo/manual-setup)</Callout>
+
+<Steps>
+    <Step>
+        **Apply remote database migrations**
+        ```npm title="apps/app"
+        npm run db:migrate:prod
+        ```
+    </Step>
+    <Step>
+        **Seed the remote database**
+        ```npm title="apps/app"
+        npm run db:seed:prod
+        ```
+    </Step>
+    <Step>
+        **Deploy the application to Cloudflare**        
+        ```npm title="apps/app"
+        npm run deploy:app
+        ```
+    </Step>
+</Steps>
+
+After successfully deploying your application, the CLI will give you your domain to visit the live Worker. For Next-Cloudflare-Turbo, this is a custom domain, but for you it will be a worker.dev URL.
+
+```bash
+✨ Success! Uploaded 6 files (41 already uploaded) (2.82 sec)
+
+Total Upload: 10751.33 KiB / gzip: 2066.24 KiB
+Worker Startup Time: 27 ms
+Your Worker has access to the following bindings:
+Binding                                                Resource
+env.DB (test-new-db)                                   D1 Database
+env.WORKER_SELF_REFERENCE (next-cloudflare-turbo)      Worker
+env.ASSETS                                             Assets
+
+Uploaded next-cloudflare-turbo (19.65 sec)
+Deployed next-cloudflare-turbo triggers (6.08 sec)
+  app.cording.dev (custom domain) # [!code highlight]
+Current Version ID: e185c6e3-b32b-4d38-879c-872c119819a2
+```
+
+--- 
+
+## FAQ
+
+<Accordions>
+    <Accordion title="Why are wrangler commands prefixed with npx?">
+        Using `npx` ensures everyone uses the exact same version of Wrangler that's specified in `package.json`, rather than a globally installed version that might differ.
+    </Accordion>
+
+    <Accordion title="What is the difference between dev and preview?">
+        Running `dev` follows the standard Next.js workflow. Use this mode while actively developing, with Hot Module Reloading (HMR) to reflect changes instantly. HMR is not available in `preview`.
+
+        The `preview` command builds your app with the `opennextjs/cloudflare` adapter and runs it in the Worker runtime ([workerd](https://github.com/cloudflare/workerd)). If it previews successfully, it should also deploy successfully.
+    </Accordion>
+
+    <Accordion title="Why are dev/preview run from the project root instead of the application root?">
+        Running `turbo run dev` from the project root will start the `app` and `docs` dev servers. The `app` has a dependency on the `@nct/db` package, so Turbo will automatically run the `@nct/db` dev script before starting the `app`. 
+
+        If you tried running the app directly without going through the root, it would fail on the first run because the app expects the `.dist` folder (built by `@nct/db`) to already exist.
+    </Accordion>
+    
+    <Accordion title="Can you run the dev commands from application roots instead?">
+        Of course. If you did so on the `docs` for the first time, you would have no problems. Likewise, so long as the `@nct/db/.dist` folder exists, you can also do the same for the `app`. It is likely you will mix between running `dev` and `preview` commands from either the project or application roots. Both are okay.
+    </Accordion>
+
+    <Accordion title="What is the 'migration_dir' for the D1 bindings?">
+        As we are using Drizzle as the ORM, we want to use the migrations that Drizzle generates. 
+
+        The `migration_dir` key for the D1 bindings tells D1 where to find the migrations. If we do not do this, it will use the default migrations directory (which will be empty).
+    </Accordion>
+
+    <Accordion title="What if something goes wrong?">
+        Check the [Manual Setup](/next-cloudflare-turbo/manual-setup) page if automated scripts fail, the [Issues & Errors](/next-cloudflare-turbo/known-issues) page for common issues, or open an issue on GitHub.
+    </Accordion>
+
+</Accordions>
+
+---
+
+## Next steps
+<Cards>
+    <Card href="/app" icon={<AppWindow className="text-[var(--app-color)]" />} title="App" description="Deep-dive into the app and understand its construction."/>
+    <Card href="/cloudflare" icon={<Cloud className="text-[var(--cloudflare-color)]" />} title="Cloudflare dashboard" description="Walkthrough the Cloudflare dashboard and see how everything works."/>
+</Cards>

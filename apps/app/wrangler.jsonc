@@ -1,0 +1,38 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */ {
+  // The monorepo hoists wrangler to the root dir; if not using a monorepo, you would omit the "../../"
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "next-cloudflare-turbo",
+  "main": ".open-next/worker.js",
+  // https://opennext.js.org/cloudflare/howtos/keep_names
+  "keep_names": false,
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    "port": 8787
+  },
+  // Delete the routes key - this is a custom domain for next-cloudflare-turbo only, left here as an example
+  "routes": [
+    {
+      "pattern": "app.cording.dev",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "next-cloudflare-turbo",
+      "database_id": "04bb2f8f-076a-4e72-8baf-c4b533ad3ef8",
+      "migrations_dir": "../../packages/db/drizzle/migrations"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+---
+title: D1 Databases
+description: Querying databases, inspecting tables, and managing data through the dashboard
+---
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+## Overview
+
+The D1 section of the Cloudflare dashboard provides a console for database operations, allowing you to run queries, inspect table structures, view data, and monitor database performance without deploying code changes.
+
+This is particularly useful for debugging production data issues, verifying migrations, running one-off queries, or exploring your database structure.
+
+<Callout>It's worthwhile familiarising yourself with the [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/). These differ between free and paid tiers.</Callout>
+
+---
+
+## Accessing your databases
+
+From the [Cloudflare dashboard](https://dash.cloudflare.com), navigate to **D1** in the left sidebar.
+
+<Wrapper>![D1 Database List](https://assets.cording.dev/cloudflare-d1-console.png)</Wrapper>
+
+You'll see a list of all your D1 databases. For Next-Cloudflare-Turbo, you should see:
+- `next-cloudflare-turbo` (production)
+- `next-cloudflare-turbo-staging` (if configured)
+- `next-cloudflare-turbo-tag` (production cache, if using advanced caching)
+- `next-cloudflare-turbo-tag-cache-staging` (staging cache, if using advanced caching)
+
+Click on any database to access its console and management features.
+
+---
+
+## Database overview page
+
+Once you've selected a database, you'll see several tabs for managing and inspecting your data.
+<Wrapper>![D1 Overview](https://assets.cording.dev/cloudflare-d1-overview.png)</Wrapper>
+
+### Console
+
+The Console tab provides a SQL query interface for running queries directly against your database.
+
+**Running a query:**
+
+Type your SQL query in the editor and click "Execute" or press `Ctrl+Enter`. The results appear below the query editor in a formatted table. You can:
+- Click column headers to sort
+- Copy individual cell values
+- Export the entire result set
+
+<Callout>
+The console runs queries against your live production database. Be careful with UPDATE, DELETE, or DROP statements.
+</Callout>
+
+### Explore data
+
+The Explore Data button opens the D1 Studio tab, providing a visual interface for browsing your database structure and data.
+
+<Wrapper>![D1 Explore Data View](https://assets.cording.dev/cloudflare-d1-explore-data.png)</Wrapper>
+
+### Time Travel
+
+Time Travel allows you to restore your database to any point in time within the last 7 days. 
+
+### Settings
+
+Configure [read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/) and manage database deletion.
+
+<Callout type="warning">
+Deleting a database is permanent and cannot be undone. Ensure you have backups before deleting production databases.
+</Callout>
+
+---
+
+## FAQ
+
+<Accordions>
+  <Accordion title="Can I edit data directly via the Cloudflare Dashboard?">
+    Yes. You can do this either through the Console or Explore Data tabs. 
+  </Accordion>
+
+  <Accordion title="How do I import/export data to/from D1?">
+    You can do this using the Wrangler CLI. For more information, see [Import and export data](https://developers.cloudflare.com/d1/best-practices/import-export-data/)
+  </Accordion>
+
+  <Accordion title="Why don't I see my recent migration changes?">
+    Ensure you ran the migration against the correct environment (staging vs production). Use the Console to check for the existence of new tables or columns to verify the migration was applied.
+  </Accordion>
+
+  <Accordion title="Can I restore deleted data?">
+    Yes. Use the built-in [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/) feature. Time Travel is D1's approach to backups and point-in-time-recovery, and allows you to restore a database to any minute within the last 7 days (free tier), going up to 30 days (paid tier).
+  </Accordion>
+
+  <Accordion title="How do I create a new table from the dashboard?">
+    You shouldn't create tables manually. Instead, update your Drizzle schema in the `@nct/db` package, generate a migration, and apply it via Wrangler. This ensures your schema stays in sync with your code.
+  </Accordion>
+
+  <Accordion title="Why is my query timing out?">
+    D1 has a 30-second execution limit. Optimize your query by:
+    - Adding indexes to frequently queried columns
+    - Using LIMIT to reduce result sets
+    - Breaking complex queries into smaller operations
+    - Checking the query plan with EXPLAIN QUERY PLAN
+  </Accordion>
+
+  <Accordion title="How do I check database size?">
+    The database Overview tab shows the Storage used (current) figure.
+  </Accordion>
+
+</Accordions>

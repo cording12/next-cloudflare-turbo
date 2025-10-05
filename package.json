@@ -1,0 +1,49 @@
+{
+  "name": "next-cloudflare-turbo",
+  "private": true,
+  "scripts": {
+    "setup:db": "tsx scripts/setup-db.ts",
+    "build": "turbo run build",
+    "build:packages": "turbo run build --filter=@nct/db --filter=@nct/ui",
+    "preview": "turbo run preview",
+    "preview:app": "turbo run preview --filter=app",
+    "preview:docs": "turbo run preview --filter=docs",
+    "dev": "turbo run dev",
+    "deploy:app": "turbo run deploy --filter=app",
+    "deploy:docs": "turbo run deploy --filter=docs",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "check-types": "turbo run check-types",
+    "postinstall": "node -e \"if (process.env.NODE_ENV !== 'production' && process.env.CI !== 'true') { require('child_process').execSync('patch-package', {stdio: 'inherit'}) }\"",
+    "sp:list": "syncpack list",
+    "sp:list-mismatches": "syncpack list-mismatches",
+    "sp:fix-mismatches": "syncpack fix-mismatches",
+    "sp:format": "syncpack format"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.1.2",
+    "@types/comment-json": "^2.4.1",
+    "@types/node": "^24.3.0",
+    "patch-package": "^8.0.0",
+    "syncpack": "^13.0.4",
+    "tsx": "^4.20.5",
+    "turbo": "^2.5.5",
+    "typescript": "^5.8.3",
+    "ultracite": "5.0.47",
+    "wrangler": "^4.28.0"
+  },
+  "overrides": {
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

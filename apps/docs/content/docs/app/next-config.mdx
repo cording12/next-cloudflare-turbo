@@ -1,0 +1,45 @@
+---
+title: Next.js Config
+description: Understanding the Next.js configuration for Cloudflare Workers
+---
+
+The Next.js configuration is short, but has some implementations that are important for Cloudflare Workers.
+
+## Minimal configuration
+
+```tsx title="next.config.ts"
+import type { NextConfig } from "next"
+
+const nextConfig: NextConfig = {
+  // Config to go here
+}
+
+export default nextConfig
+
+// enable calling `getCloudflareContext()` in `next dev`
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare"
+
+initOpenNextCloudflareForDev()
+```
+
+The minimum configuration requirement for the OpenNext adapter is to ensure that the `initOpenNextCloudflareForDev()` is implemented.
+
+It provides a utility required to integrate the OpenNext adapter with the Next.js dev server. When you run the `next dev` command, this allows your application to use your Cloudflare resources such as D1 and R2.
+
+In your application, you will use the `getCloudflareContext` API to interact with your Cloudflare resources while running `next dev`:
+
+```tsx title="/app/src/lib/db.ts"
+import { createDrizzleD1 } from "@nct/db"
+import { getCloudflareContext } from "@opennextjs/cloudflare" // [!code highlight]
+
+export const getDb = cache(() => {
+  const { env } = getCloudflareContext() // [!code highlight]
+  return createDrizzleD1(env.DB)
+})
+```
+
+<Callout>
+  For more information, see [OpenNext: Develop and
+  Deploy](https://opennext.js.org/cloudflare/howtos/dev-deploy#develop-locally-using-next-dev)
+</Callout>
+

@@ -1,0 +1,22 @@
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 82.28 65.15">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 5px;
+      }
+
+      .cls-2 {
+        fill: currentColor;
+        fill-rule: evenodd;
+      }
+    </style>
+  </defs>
+  <title>Logo Mark</title>
+  <path class="cls-1" d="M10.22,48.47A27,27,0,1,1,55.47,21.81h6.92a17.39,17.39,0,0,1,9.66,31.85" />
+  <path id="N" class="cls-2"
+    d="M58.93,63.35,29.64,27a1.1,1.1,0,0,0-.86-.41H22.14a1.1,1.1,0,0,0-1.1,1.1V64a1.1,1.1,0,0,0,1.1,1.1h4.41A1.11,1.11,0,0,0,27.66,64V37.94a1.1,1.1,0,0,1,2-.69L51.73,64.73a1.1,1.1,0,0,0,.86.42h5.48A1.11,1.11,0,0,0,58.93,63.35Z" />
+</svg>

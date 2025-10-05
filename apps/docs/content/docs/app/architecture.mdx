@@ -1,0 +1,84 @@
+---
+title: Architecture
+description: Understanding the application structure, routing, and organisational patterns
+icon: Layers
+---
+
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+## Application Structure
+
+The app follows Next.js App Router conventions with additional organisation for Cloudflare Workers compatibility.
+
+The below file structure is not representative of all files in the project, and instead focuses on the main files you should be aware of during development.
+
+<Callout>The below is interactive - click folders to open/close</Callout>
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <Folder name="app" defaultOpen>
+      <Folder name="dashboard" defaultOpen>
+        <File name="page.tsx" />
+      </Folder>
+      <Folder name="users" defaultOpen>
+        <File name="page.tsx" />
+      </Folder>
+      <File name="page.tsx" />
+      <File name="globals.css" />
+      <File name="layout.tsx" />
+    </Folder>
+    <Folder name="components"></Folder>
+    <Folder name="data">
+      <Folder name="analytics"></Folder>
+      <Folder name="posts"></Folder>
+      <Folder name="users"></Folder>
+    </Folder>
+    <Folder name="hooks"></Folder>
+    <Folder name="lib"></Folder>
+  </Folder>
+  <File name="next.config.ts" />
+  <File name="open-next.config.ts" />
+  <File name="package.json" />
+  <File name="wrangler.json" />
+</Files>
+
+---
+
+## Breaking down the file structure
+
+The `src` folder contains the main application and is where all the application logic sits. This separates application code from project configuration files which mostly live in the root of the project.
+
+<Callout>
+  For more information, see the [Next.js
+  documentation](https://nextjs.org/docs/app/api-reference/file-conventions/src-folder)
+</Callout>
+
+### app
+
+This is the frontend to the application. It uses the Next.js [App Router](https://nextjs.org/docs/app) - a file-system based router. This section contains the code for the homepage (`/`), dashboard, users, and posts.
+
+### components
+
+The UI components are stored in this folder. ShadCN UI is used for the project, with new components installed to `src/components/ui` - as configured in the app root's `components.json`.
+
+Other components beyond just the UI are also stored here, including `theme`, `sidebar`, and chart/data tables.
+
+### data
+
+This is where all database operations are organised by domain (e.g., `users`, `posts`, `analytics`). Each domain contains its queries and mutations.
+
+For the reasoning behind this approach, see [Key Concepts](/app/key-concepts#data-access-layer).
+
+### hooks
+
+This is where global hooks are stored. It currently contains only the hook implemented by ShadCN UI components, as configured in the application's root `components.json`
+
+### lib
+
+The main file of note here is `db.ts`, which configures the connection to the D1 database. See [Database Patterns](/app/database-patterns) for implementation details.
+
+---
+
+## Configuration files
+
+The Next.js, OpenNext, and Wrangler configuration files sit at the application root, and are where you will be making changes specific to your codebase. The configurations are broken down in the detail in the [configuration](/app/next-config) page.

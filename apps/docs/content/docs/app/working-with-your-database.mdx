@@ -1,0 +1,348 @@
+---
+title: Working with your database
+description: How to modify schemas and manage database migrations
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+## Overview
+
+The database schema lives in the `@nct/db` package and uses Drizzle ORM. All schema changes follow the same workflow:
+
+1. Modify the schema files
+2. Generate a migration
+3. Apply the migration locally
+4. Test your changes
+5. Apply to staging/production
+
+<Callout type="warning">
+**Always test schema changes locally before deploying to production.** Database migrations can be destructive and cause data loss if not handled carefully.
+</Callout>
+
+---
+
+## Schema files
+
+Database schemas are defined in the `packages/db/src/schema/` directory:
+
+<Wrapper background="solid">
+    <Folder name="packages" defaultOpen>
+      <Folder name="db" defaultOpen>
+        <Folder name="src" defaultOpen>
+            <Folder name="schema" defaultOpen>
+                <File name="users.sql.ts" />
+                <File name="posts.sql.ts" />
+            </Folder>
+        </Folder>
+      </Folder>
+    </Folder>
+</Wrapper>
+
+Each schema file defines a table using Drizzle's SQLite syntax:
+
+```tsx title="users.sql.ts"
+import * as t from "drizzle-orm/sqlite-core"
+import {
+  type AnySQLiteColumn,
+  sqliteTable as table,
+} from "drizzle-orm/sqlite-core"
+
+import { timestamps } from "../utils"
+
+export const users = table(
+  "users",
+  {
+    id: t.int().primaryKey({ autoIncrement: true }),
+    firstName: t.text("first_name"),
+    lastName: t.text("last_name"),
+    email: t.text().notNull().unique(),
+    invitee: t.int().references((): AnySQLiteColumn => users.id),
+    role: t.text().$type<"guest" | "user" | "admin">().default("guest"),
+    ...timestamps,
+  },
+  (tbl) => [t.uniqueIndex("email_idx").on(tbl.email)]
+)
+```
+
+---
+## Working with TypeScript types
+Drizzle provides a type helper via the [Type API](https://orm.drizzle.team/docs/goodies#type-api). This ensures your types are always in sync with the table schema(s).
+
+You need to export them for use in the application. When you add a new table or modify a schema:
+
+<Steps>
+    <Step>
+        **Create a types file**
+
+
+        ```tsx title="src/types/users.types.ts"        
+        import type { InferInsertModel, InferSelectModel } from "drizzle-orm"
+
+        import type { users } from "../schema/users.sql"
+
+        export type SelectUser = InferSelectModel<typeof users>
+        export type InsertUser = InferInsertModel<typeof users>
+
+        export const USER_ROLES = ["guest", "user", "admin"] as const
+        export type UserRole = (typeof USER_ROLES)[number]
+        ```
+        
+        We use the `InferInsertModel` and `InferSelectModel` to create `SelectUser` and `InsertUser` types.
+    </Step>
+    <Step>
+        **Define custom types (Optional)**
+
+        ```tsx title="src/types/users.types.ts"        
+        export const USER_ROLES = ["guest", "user", "admin"] as const
+        export type UserRole = (typeof USER_ROLES)[number]
+        ```
+
+        In the `users` schema we defined a role with three types. This is additionally created and exported for use in the application.    
+    </Step>
+    <Step>
+        **Use the types**
+
+        ```tsx
+        "use server"
+
+        import { cache } from "react"
+
+        import { type SelectUser, users } from "@nct/db" // [!code highlight]
+        import { getDbAsync } from "@/lib/db"
+
+        export const getUsers = cache(async (): Promise<SelectUser[]> => { // [!code highlight]
+            const db = await getDbAsync()
+            return await db.select().from(users)
+        })
+
+        ```
+
+        This now adds type-hinting to the `getUsers` function when used in the application.
+    </Step>
+</Steps>
+
+---
+## Development
+The `@nct/db` package uses `tsup` to build and bundle the package. If you have run the `turbo run dev` command from the project root, this automatically activates the `dev` command in the database package. 
+
+If you have not, you can either run `dev` mode manually, or build instead: 
+
+```tsx title="./packages/db/"
+// Run tsup in watch mode (acts like Next.js HMR)
+turbo run dev 
+
+// Build the db package
+npm run build
+```
+
+You will always want to ensure you have run the `build` command before pushing to production, however, due to the nature of Turborepo, this is automatically done for you. 
+
+<Callout>For more information, see the [tsup documentation](https://tsup.egoist.dev/)</Callout>
+
+---
+
+## Making schema changes
+Let's walk through common schema modifications.
+
+<Callout type="warning">
+A limitation of SQLite is that you cannot **change** a column. Under-the-hood, Drizzle with replicate your table, modify it accordingly, and drop the original which can cause data loss. 
+
+If you need to modify a column (i.e. type), it is safest to:
+    1. Add new column with default value
+    2. Run migration
+    3. Copy data from old to new column (custom SQL)
+    4. Remove old column
+    5. Run another migration
+ </Callout>
+
+### Adding a new column
+<Steps>
+    <Step>
+        **Update the schema file**
+        
+        ```tsx title="packages/db/src/schema/users.sql.ts"
+        export const users = table("users", {
+          id: t.int().primaryKey({ autoIncrement: true }),
+          firstName: t.text("first_name"),
+          lastName: t.text("last_name"),
+          email: t.text().notNull().unique(),
+          role: t.text().$type<"guest" | "user" | "admin">().default("guest"),
+          // Add new column
+          phoneNumber: t.text("phone_number"), // [!code ++]
+        })
+        ```
+    </Step>
+    <Step>
+        **Generate the migration**
+
+        ```npm
+        npm run db:generate
+        ```
+
+        This creates a new migration file in `packages/db/drizzle/migrations/` with a timestamp:
+        ```bash
+        drizzle/migrations/
+        └── 0001_add_phone_number.sql
+        ```
+    </Step>
+    <Step>
+        **Review the generated SQL (Optional)**
+
+        ```bash
+        ALTER TABLE users ADD COLUMN phone_number TEXT;
+        ```        
+    </Step>
+    <Step>
+        **Build the db package**
+
+        ```npm 
+        npm run build
+        ```
+    </Step>
+    <Step>
+        **Apply migrations**
+
+        Change to the `app` directory before running:
+        ```tsx title="apps/app"
+        // apply migrations locally
+        npm run db:migrate:local
+        
+        // apply to production database
+        npm run db:migrate:prod
+        ```
+        
+    </Step>
+</Steps>
+
+### Creating a new table
+<Steps>
+    <Step>
+        **Create a new schema file**
+
+        ```tsx title="packages/db/src/schema/comments.sql.ts"
+        export const comments = table("comments", {
+            id: t.int().primaryKey({ autoIncrement: true }),
+            postId: t.int("post_id").notNull().references(() => posts.id),
+            userId: t.int("user_id").notNull().references(() => users.id),
+            content: t.text().notNull(),
+            createdAt: t.text("created_at").notNull(),
+        })
+        ```
+    </Step>
+    <Step>
+        **Add the types**
+
+        ```tsx title="packages/db/src/types/comments.types.ts"
+        import type { InferInsertModel, InferSelectModel } from "drizzle-orm"
+
+        import type { comments } from "../schema/comments.sql"
+
+        export type SelectComment = InferSelectModel<typeof comments>
+        export type InsertComment = InferInsertModel<typeof comments>
+        ```
+    </Step>
+    <Step>
+        **Export from schema index**
+
+        ```tsx title="packages/db/src/index.ts"
+        import type { D1Database } from "@cloudflare/workers-types"
+        import { drizzle } from "drizzle-orm/d1"
+
+        export * from "./schema/posts.sql"
+        export * from "./schema/users.sql"
+        export * from "./schema/comments.sql" // [!code ++]
+        export * from "./types/posts.types"
+        export * from "./types/users.types"
+
+        import { posts } from "./schema/posts.sql"
+        import { users } from "./schema/users.sql"
+        import { comments } from "./schema/comments.sql" // [!code ++]
+
+        export const schema = {
+            users,
+            posts,
+            comments, // [!code ++]
+        } as const
+
+        // Connection factory - called in Workers
+        export function createDrizzleD1(d1: D1Database) {
+        return drizzle(d1, { schema })
+        }
+
+        export type Database = ReturnType<typeof createDrizzleD1>
+
+        ```
+    </Step>
+    <Step>
+        **Generate migrations**
+
+        ```npm
+        npm run db:generate
+        ```
+    </Step>
+    <Step>
+        **Build the db package**
+
+        ```npm 
+        npm run build
+        ```
+    </Step>
+    <Step>
+        **Apply migrations**
+
+        Change to the `app` directory before running:
+        ```tsx title="apps/app"
+        // apply migrations locally
+        npm run db:migrate:local
+        
+        // apply to production database
+        npm run db:migrate:prod
+        ```
+    </Step>
+</Steps>
+
+---
+
+## FAQs
+
+<Accordions>
+  <Accordion title="Migration says 'No migrations to apply'">
+    The migration was already applied. Run `npm run db:list:local` from the root of the application to see migration status.
+  </Accordion>
+  
+  <Accordion title="Why are Types not updating after a schema change?">
+    Run `npm run build` in the database package, then restart your dev server.
+  </Accordion>
+  
+  <Accordion title="My data disappeared after column change">
+    SQLite **cannot safely modify existing columns**. When you change column properties (type, constraints, etc.), Drizzle must create a new table, copy data, drop the old table, and rename the new table.
+
+    During this process, **data can be lost** if types are incompatible. It is typically safest to:
+
+        1. Add new column with default value
+        2. Run migration
+        3. Copy data from old to new column (custom SQL)
+        4. Remove old column
+        5. Run another migration
+
+    See [SQLite ALTER TABLE documentation](https://www.sqlite.org/lang_altertable.html) for limitations.
+
+  </Accordion>
+  <Accordion title="Can I have a different database for each environment?">
+    Yes. Configure separate databases for local, staging, and production in `wrangler.jsonc`. See [Advanced Setup](/next-cloudflare-turbo/advanced-setup) for complete configuration.
+  </Accordion>
+
+    <Accordion title="My migration failed. What do I do wrong?">
+    **Common issues:**
+    - Foreign key constraint violations
+    - NOT NULL columns without defaults
+    - Duplicate unique values
+    - Type incompatibilities
+    </Accordion>
+
+    <Accordion title="Can I use Drizzle Studio?">
+    Yes. See the [Drizzle config](/app/drizzle-config#using-drizzle-studio-locally) page for how to use Drizzle Studio with D1 locally.
+    </Accordion>
+
+</Accordions>

@@ -1,0 +1,164 @@
+---
+title: LLMs
+description: Custom instructions for AI coding assistants
+---
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+## What are Copilot Instructions?
+
+Copilot instructions are configuration files that provide context and coding guidelines to AI assistants like GitHub Copilot, Claude, and other AI coding tools. They help ensure generated code follows your project's specific patterns, conventions, and constraints.
+
+Next-Cloudflare-Turbo includes comprehensive instruction files that teach AI assistants about the unique aspects of developing with Cloudflare Workers, the monorepo structure, and project-specific patterns.
+
+<Callout>For more detailed information about GitHub Copilot custom instructions, see the [official documentation](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions?tool=vscode#creating-path-specific-custom-instructions).</Callout>
+
+---
+
+## File Structure
+
+The instruction files are organised to provide both global and path-specific guidance:
+
+```
+.github/
+├── copilot-instructions.md          # Global instructions for entire repository
+└── instructions/
+    ├── app.instructions.md          # Next.js app patterns (apps/app/**)
+    ├── data.instructions.md         # Data layer patterns (apps/app/src/data/**)
+    ├── database.instructions.md     # Database package patterns (packages/db/**)
+    └── formatting.instructions.md   # Code quality rules (**/*.{ts,tsx,js,jsx})
+```
+
+### Global Instructions
+
+The main `copilot-instructions.md` file provides repository-wide context including:
+
+- **Architecture overview** - Cloudflare Workers runtime environment and constraints
+- **Universal constraints** - No Node.js APIs, Web Standards usage, edge runtime considerations
+- **Import patterns** - Correct ways to import from database packages and utilities
+- **Database connection patterns** - When to use `getDb()` vs `getDbAsync()`
+- **Universal rules** - British English, TypeScript strict mode, error handling patterns
+
+### Path-Specific Instructions
+
+Each instruction file uses the `applyTo` frontmatter to target specific parts of the codebase:
+
+**App Instructions** (`apps/app/**`)
+- Next.js App Router patterns optimised for Cloudflare Workers
+- Server Component vs Client Component usage
+- Form handling with Server Actions
+- Error handling and navigation patterns
+
+**Data Instructions** (`apps/app/src/data/**`)
+- Query vs Action separation patterns
+- Connection factory usage (`getDb` vs `getDbAsync`)
+- Proper use of `"use server"` directive
+- Caching strategies with React's `cache()`
+
+**Database Instructions** (`packages/db/**`)
+- Drizzle ORM schema definitions
+- Migration workflow and best practices
+- Type export patterns
+- Package structure conventions
+
+**Formatting Instructions** (All TypeScript/JavaScript files)
+
+This is a pre-configured Ultracite preset. For more information see [Ultracite | Editor Rules](https://www.ultracite.ai/rules)
+
+---
+
+## Customising Instructions
+
+You can modify these files to match your specific requirements. The instructions were generated for this project by using Claude. Claude was given the full code of each specific pattern/repository, as well as the documentation. 
+
+<Callout>If you use Claude, it is helpful to have multiple separate conversations where you ask it to cross-reference instructions with the code (and in this instance, documentation). **Always double-check your instructions to ensure they are correct.**</Callout>
+
+### Creating New Path-Specific Instructions
+
+For new packages or applications:
+
+```markdown
+---
+applyTo: "packages/your-package/**"
+---
+
+# Your Package Instructions
+
+## Purpose
+Brief description of what this package does.
+
+## Patterns
+Specific coding patterns for this package.
+```
+
+---
+
+## Best Practices
+
+### Writing Effective Instructions
+
+**Be specific about constraints:**
+```markdown
+# Don't be vague
+- Use TypeScript
+
+# Be specific about project requirements
+- Use TypeScript strict mode (no any types)
+- Import types from @nct/db package exclusively
+- Use Web APIs instead of Node.js built-ins
+```
+
+**Provide context for Cloudflare Workers:**
+```markdown
+# Always explain why certain patterns exist
+- Use getDb() for live user requests (Server Actions, dynamic Server Components)
+- Use getDbAsync() for build-time operations (ISR, SSG, static queries)
+```
+
+**Include both DO and DON'T examples:**
+```markdown
+## DO
+- Use "use server" directive for all data access functions
+- Handle errors gracefully with try/catch blocks
+
+## DON'T
+- Use Node.js built-ins (not available in Cloudflare Workers)
+- Skip error handling in data operations
+```
+
+### Maintaining Instructions
+
+As your project evolves:
+- **Update patterns** when you establish new conventions
+- **Remove outdated guidance** that no longer applies
+- **Test with AI assistants** to ensure instructions produce expected results
+- **Keep examples current** with your actual codebase
+
+---
+
+## FAQ
+
+<Accordions>
+  <Accordion title="Do all AI coding assistants support these instructions?">
+    Support varies by tool. GitHub Copilot in VS Code has excellent support for both global and path-specific instructions. Other AI assistants may require manually sharing relevant context or may only support global instructions.
+  </Accordion>
+
+  <Accordion title="Can I use these instructions with Claude or ChatGPT?">
+    Yes, but you'll need to manually share the relevant instruction content with the AI when starting a coding session. The automatic path-specific loading is primarily a GitHub Copilot feature.
+  </Accordion>
+
+  <Accordion title="How often should I update the instruction files?">
+    Update instructions whenever you establish new coding patterns, add significant features, or change architectural decisions. Treat them as living documentation that evolves with your project.
+  </Accordion>
+
+  <Accordion title="What if the instructions conflict with my personal coding style?">
+    These instructions represent project-specific requirements, especially for Cloudflare Workers compatibility. You can modify them, but be careful not to remove critical constraints like the prohibition on Node.js APIs in Workers environments.
+  </Accordion>
+
+  <Accordion title="Can I add instructions for other file types?">
+    Yes, you can create path-specific instructions for any file pattern. For example, you might add instructions for Markdown files, configuration files, or test files using appropriate `applyTo` patterns.
+  </Accordion>
+
+  <Accordion title="Do these instructions affect build performance?">
+    No, instruction files are only used by AI coding assistants during development. They don't impact build times, bundle sizes, or runtime performance of your application.
+  </Accordion>
+</Accordions>
