@@ -21,7 +21,6 @@ export async function GET(
 
 // This statically generates all the MDX routes for the "copy" button
 // If your GitHub repo is private, this will fail the build. Comment it out/delete to fix.
-// export function generateStaticParams() {
-// TODO: Uncomment on launch
-//   return source.generateParams()
-// }
+export function generateStaticParams() {
+  return source.generateParams()
+}
