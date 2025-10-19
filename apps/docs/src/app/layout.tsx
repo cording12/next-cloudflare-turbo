@@ -17,6 +17,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://docs.cording.dev"),
   icons: {
     icon: "/favicon-x16.png",
   },
