@@ -57,6 +57,8 @@ export default async function Page(props: {
   )
 }
 
+const withTrailingSlash = (url: string) => (url.endsWith("/") ? url : `${url}/`)
+
 export async function generateStaticParams() {
   return await source.generateParams()
 }
@@ -70,17 +72,31 @@ export async function generateMetadata(props: {
     notFound()
   }
 
+  const canonicalPath = withTrailingSlash(page.url)
+  const pageTitle = page.data.title || "Next-Cloudflare-Turbo Docs"
+
   const metadata: Metadata = {
-    title: page.data.title,
+    title: pageTitle,
+    ...(page.data.description && { description: page.data.description }),
     alternates: {
-      canonical: page.url,
+      canonical: canonicalPath,
     },
     openGraph: {
-      url: page.url,
+      url: canonicalPath,
+      title: pageTitle,
+      ...(page.data.description && { description: page.data.description }),
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      ...(page.data.description && { description: page.data.description }),
+    },
+    robots: {
+      index: true,
+      follow: true,
     },
   }
-  if (page.data.description) {
-    metadata.description = page.data.description
-  }
+
   return createMetadata(metadata)
 }
