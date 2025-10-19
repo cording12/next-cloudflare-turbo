@@ -18,9 +18,22 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://docs.cording.dev"),
-  icons: {
-    icon: "/favicon-x16.png",
+  openGraph: {
+    siteName: "docs.cording.dev",
+    images: [
+      {
+        url: "https://assets.cording.dev/banner.png",
+        width: 1200,
+        height: 630,
+        alt: "Next-Cloudflare-Turbo documentation",
+      },
+    ],
   },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://assets.cording.dev/banner.png"],
+  },
+  icons: { icon: "/favicon-x16.png" },
 }
 
 export default function Layout({ children }: { children: ReactNode }) {
