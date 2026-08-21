@@ -1,3 +1,5 @@
+
+
 <h1 align="center">Next-Cloudflare-Turbo</h1>
 <img title="NCT Banner" alt="A banner image for Next-Cloudflare-Turbo with a heading reading Build full-stack on Cloudflare's edge" src="https://assets.cording.dev/banner.png">
 <p align="center">
@@ -49,7 +51,7 @@ View the live application at [app.cording.dev](https://app.cording.dev/) and the
 
 ## Getting started
 
-Next-Cloudflare-Turbo is designed to be cloned and modified to each project. For more information on getting started, [view the documentation](https://docs.cording.dev).
+Next-Cloudflare-Turbo is designed to be cloned and modified to each project. The repository requires Node.js 18 or later. For more information on getting started, [view the documentation](https://docs.cording.dev).
 
 ## Contributing
 
